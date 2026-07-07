@@ -46,8 +46,7 @@ backend/
 │   │   ├── auth/
 │   │   ├── employees/         # CRUD, onboard, relieve
 │   │   ├── salary-templates/
-│   │   ├── salary-assignments/
-│   │   ├── salary-revisions/
+│   │   ├── salary/                # SalaryRecord — assign, revise, history, migrate
 │   │   ├── dashboard/         # Aggregates, normalized reporting
 │   │   ├── settings/          # Config + demo (seed, clear all)
 │   │   └── demo/              # Seed & clear-all logic (used by settings)
@@ -61,84 +60,85 @@ Each feature module owns its **controller**, **service**, **entities**, and **DT
 
 ## Domain Model
 
+```
+Employee ──< SalaryRecord >── SalaryTemplate
+    │
+ currentSalaryId (FK → latest SalaryRecord)
+```
+
 ### Employee
-| Field | Type |
-|-------|------|
-| id | UUID |
-| employeeId | string (org identifier) |
-| name | string |
-| email | string |
-| country | string |
-| employmentType | Permanent \| Part-time \| Contract |
-| status | Active \| Left |
-| joiningDate | date |
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| employeeId | string | Unique org identifier |
+| name | string | |
+| email | string | Unique |
+| country | string | Must be in `Settings.supportedCountries` |
+| employmentType | enum | `Permanent \| PartTime \| Contract` |
+| status | enum | `Active \| Left` |
+| joiningDate | date | |
+| currentSalaryId | UUID \| null | FK → SalaryRecord (latest active) |
 
 ### SalaryTemplate
-Versioned, immutable compensation package. Assignments reference a specific version.
+Versioned blueprint. Once used as a basis for any `SalaryRecord`, `isAssigned = true` and the version becomes immutable — create a new version for structural changes.
 
-| Field | Type |
-|-------|------|
-| id | UUID |
-| name | string (template family — shared across versions) |
-| version | number (incremented per new version) |
-| country | string |
-| currency | string |
-| components | JSON — e.g. `{ basePay, allowances, bonus }` |
-| assigned | boolean (computed — true if any employee references this version) |
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| name | string | Template family name (shared across versions) |
+| version | integer | Incremented per new version |
+| country | string | |
+| currency | string | |
+| components | jsonb | `{ basePay, allowances?, bonus?, stock?: { quantity, vestingDate? } }` |
+| isAssigned | boolean | True once referenced by any SalaryRecord |
 
-Once `assigned = true`, the template version cannot be modified. Create a new version instead.
+Unique constraint: `(name, version)`.
 
-### SalaryAssignment
-Links employee to a template for a date range.
+### SalaryRecord
+Every salary event — initial assignment or revision. Append-only. Stock stored inside `components` JSON.
 
-| Field | Type |
-|-------|------|
-| employeeId | FK → Employee |
-| templateId | FK → SalaryTemplate |
-| effectiveFrom | date |
-| effectiveTo | date \| null (open-ended = current) |
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| employeeId | UUID | FK → Employee |
+| templateId | UUID \| null | FK → SalaryTemplate (blueprint used, if any) |
+| effectiveDate | date | |
+| baseSalary | decimal(15,2) | |
+| currency | string | |
+| paymentCycle | enum | `Monthly \| BiWeekly \| Weekly \| Annual` |
+| components | jsonb | `{ allowances?, bonus?, stock?: { quantity, vestingDate? } }` |
+| totalCompensation | decimal(15,2) | Stored (computed at write time) |
+| reason | string \| null | |
+| createdBy | string | HR username from JWT |
 
-### SalaryRevision
-Append-only compensation change record.
+Index: `(employeeId, effectiveDate DESC)`.
 
-| Field | Type |
-|-------|------|
-| employeeId | FK → Employee |
-| effectiveDate | date |
-| baseSalary | decimal |
-| components | JSON |
-| reason | string |
-| createdBy | string |
+**Active salary:** `Employee.currentSalaryId` → direct FK lookup. Updated on every assign/edit.
 
-### StockComponent
-Optional per-employee stock grant on assignment or revision.
+**History:** All `SalaryRecord` for an employee, ordered by `effectiveDate DESC`.
 
-| Field | Type |
-|-------|------|
-| quantity | number |
-| vesting | string |
-| grantDate | date |
-
-### Settings (singleton)
+### Settings (singleton, id = 1)
 | Field | Purpose |
 |-------|---------|
 | baseCurrency | Reporting currency for dashboard normalization |
-| fxRates | `{ [currency]: rate }` — manual rates vs base currency |
-| totalStocks | Organization-wide total stock pool (backend-updatable) |
+| fxRates | `{ [currency]: rate }` — 1 unit of currency → baseCurrency |
+| supportedCurrencies | `string[]` — available for salary assignment |
+| supportedCountries | `string[]` — available for employee assignment |
+| totalStocks | Org-wide stock pool (backend-updatable) |
 | stockPrice | Unit price per stock |
-| stockPriceCurrency | Currency in which `stockPrice` is denominated |
+| stockPriceCurrency | Currency of stock price |
 
 ---
 
 ## Key Logic
 
-**Active assignment:** Latest assignment where `effectiveFrom ≤ today` and (`effectiveTo` is null or `effectiveTo ≥ today`).
+**Active salary:** `Employee.currentSalaryId` → direct FK lookup; updated atomically on every assign/edit.
 
-**Active revision:** Latest revision where `effectiveDate ≤ today` (supplements or overrides template values per business rules).
+**Salary history:** All `SalaryRecord` rows for an employee, ordered by `effectiveDate DESC`.
 
-**Total compensation:** Sum of `baseSalary` + component values + stock value (`quantity × stockPrice`, converted from `stockPriceCurrency` via `fxRates` when needed).
+**Total compensation (stored at write):** `baseSalary + components.allowances + components.bonus + (components.stock.quantity × stockPrice normalized to salary currency)`.
 
-**Currency normalization:** `normalizedAmount = originalAmount × fxRates[originalCurrency]`.
+**Currency normalization (dashboard):** `normalizedAmount = originalAmount × fxRates[originalCurrency]`.
 
 ---
 
@@ -149,9 +149,8 @@ Optional per-employee stock grant on assignment or revision.
 | Auth | `POST /auth/login` |
 | Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve` |
 | Salary Templates | `GET/POST /salary-templates`, `POST /salary-templates/:id/versions`, `GET /salary-templates/:id` |
-| Template Migration | `POST /employees/:id/migrate-template`, `POST /employees/migrate-template/bulk` |
-| Salary Assignments | `POST /employees/:id/assignments`, `GET /employees/:id/assignments` |
-| Salary Revisions | `POST /employees/:id/revisions`, `GET /employees/:id/revisions` |
+| Salary | `POST /employees/:id/salary` (assign), `PATCH /employees/:id/salary` (revise), `GET /employees/:id/salary/history` |
+| Template Migration | `POST /employees/:id/salary/migrate`, `POST /salary/bulk-migrate` |
 | Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` |
 | Settings | `GET/PATCH /settings` |
 | Settings — Demo | `POST /settings/demo/seed`, `POST /settings/demo/clear`, `GET /settings/demo/status` |
@@ -227,7 +226,7 @@ frontend/
 | Concern | Approach |
 |---------|----------|
 | Employee list | Server pagination; indexes on `name`, `email`, `country`, `status` |
-| Active salary | Query latest assignment/revision per employee via SQL window or denormalized pointer |
+| Active salary | `Employee.currentSalaryId` FK — direct lookup, no window function needed |
 | Dashboard | SQL aggregates; normalize currency in service layer |
 | Seed | Batch inserts (500–1000 rows/transaction); triggered from Settings → Demo |
 | Clear all | Truncate employee/salary tables; retain Settings row |

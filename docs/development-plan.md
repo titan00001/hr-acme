@@ -21,11 +21,11 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 ### M1 — Backend Core
 **Goal:** Full REST API with domain logic and database.
 
-- TypeORM entities and migrations (Employee, Template, Assignment, Revision, Settings)
+- TypeORM entities and migrations (Employee, SalaryTemplate, SalaryRecord, Settings)
 - Auth module (JWT login + Bearer guard)
 - Swagger/OpenAPI setup (`@nestjs/swagger`, Bearer auth, `/api/docs`)
 - Employees module (CRUD, onboard, relieve)
-- Salary module (versioned templates, assignments, revisions, individual + bulk migration)
+- Salary module (versioned templates, SalaryRecord assign/revise, individual + bulk migration)
 - Settings module (base currency, FX rates, stock config)
 - Dashboard module (aggregates with currency normalization)
 - Demo module (seed + clear all under settings)
@@ -63,16 +63,41 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 
 ## Trade-offs
 
-| Decision | Chosen | Why |
-|----------|--------|-----|
-| Backend framework | NestJS | DI, modular structure, less boilerplate decisions |
-| ORM | TypeORM + migrations | NestJS native integration; explicit schema evolution |
-| Module layout | Feature + common | Clear boundaries; shared auth/currency/pagination |
-| Currency | Manual FX rates in Settings | Normalizes dashboard without external FX API dependency |
-| Stock | Org-level price + currency; optional per-employee component | No toggle — avoids inconsistent state when toggled off mid-use |
-| Template versioning | Immutable once assigned; new version on structural change | Preserves assignment integrity; mirrors real HR payroll evolution |
-| Template migration | Manual individual + bulk by HR in MVP | Automatic migration deferred — needs validation, diff, and audit |
-| Auth | Single-user JWT | Matches persona; not assessment focus |
+### Architecture & Backend
+
+| Decision | Chosen | Alternative | Why |
+|----------|--------|-------------|-----|
+| Backend framework | NestJS | Express (plain) | DI, opinionated structure, less low-level decisions |
+| ORM | TypeORM + migrations | Prisma | NestJS native integration; explicit schema evolution via migration files |
+| Module layout | Feature modules + `common/` | Flat MVC | Clear boundaries; shared concerns (auth, currency, pagination) in one place |
+| Auth credentials | `.env` only, no DB users table | Seeded user row | Single HR persona; adding a table would imply future RBAC which is out of scope |
+| Auth guard | Global `JwtAuthGuard` + `@Public()` opt-out | Per-route guard | Secure by default — no route is accidentally left unprotected |
+| Salary model | `SalaryRecord` | Assignment + Revision as separate entities | Two entities with overlapping purpose confused the HR workflow; one record per salary event is simpler and auditable |
+| `currentSalaryId` on Employee | Denormalized FK to latest record | `MAX(effectiveDate)` query on every read | O(1) lookup vs O(log n) window function at 10k scale; updated atomically in transaction |
+| `totalCompensation` storage | Stored at write time | Computed on read | Avoids recalculation on every list/aggregate query; stock price change noted as a known limitation |
+| Settings cache | In-memory singleton cache | Query DB on every request | FX rates and country list are read far more than written; avoids DB roundtrip on every salary validation |
+| Dashboard aggregates | Raw SQL `GROUP BY` / `DATE_TRUNC` | Load rows into service and aggregate in JS | Never loads 10k rows into memory; scales with data |
+
+### Frontend
+
+| Decision | Chosen | Alternative | Why |
+|----------|--------|-------------|-----|
+| State management | RTK Query for server data + `authSlice` for auth | Full Redux slices per domain | RTK Query handles caching, loading, invalidation automatically — less boilerplate |
+| HTTP client | axios wrapped in RTK Query `baseQuery` | fetch / RTK Query default `fetchBaseQuery` | axios gives interceptors (401 → logout, token injection) without extra wiring |
+
+| Modals vs pages | Onboard + Relieve as dialogs | Separate routes (`/employees/onboard`) | Fewer routes; context stays on the directory; HR completes action without losing list state |
+| Forms | `react-hook-form` + `zod` | Controlled state + manual validation | Schema-driven validation; form state isolated from Redux |
+| Charts | `recharts` | Chart.js / Victory | Composable React components; good TypeScript support; small bundle |
+| Salary form | Template picker → pre-fill → editable | Blank form or locked to template values | HR always has context of the template but can adjust — matches real-world HR workflow |
+
+### Deliberate Scope Cuts
+
+| Cut | Reason |
+|-----|--------|
+| `totalCompensation` not recalculated when stock price changes | Recalculating history on stock price change would silently mutate immutable history — log this as a known limitation; future: store stock price snapshot per record |
+| No optimistic UI updates | RTK Query refetch-on-invalidate is sufficient for MVP; optimistic updates add complexity |
+| Pagination style: offset-based | Cursor-based is more performant at very large scale but adds complexity; offset + page number is sufficient for MVP |
+| FX rates: point-in-time only | Historical rate tracking (rate per revision date) is out of scope; rates are a single current snapshot |
 
 ---
 

@@ -24,13 +24,43 @@ Duplicate `employeeId` or `email` should be rejected.
 | New version on change | Compensation structure changes create a new template version — existing assignments are untouched |
 | Manual migration (MVP) | HR migrates employees to a newer version individually or in bulk (select employees → target version) |
 | No auto-migration | Rules-based or scheduled migration is **out of MVP scope** |
-| Template-first | New salaries assigned via a specific SalaryTemplate version; revisions override individual values |
-| Append-only | Revisions never edited or deleted after creation |
-| Chronology | New revision `effectiveDate` must be ≥ latest existing revision date |
-| Active record | One active assignment + one active revision per employee at any time |
-| Left employees | No new assignments or revisions after relieve |
+| Template as blueprint | Pick a SalaryTemplate to pre-fill salary form; HR adjusts values before saving |
+| SalaryRecord append-only | Every assign or edit creates a new `SalaryRecord` — never overwrite |
+| Chronology | New `SalaryRecord.effectiveDate` must be ≥ latest existing record's effectiveDate |
+| Active record | `Employee.currentSalaryId` always points to the latest `SalaryRecord` |
+| Left employees | No new salary records after status set to Left |
 
 **Total compensation** = `baseSalary` + sum(component values) + stock value (`quantity × stockPrice`, in `stockPriceCurrency`).
+
+---
+
+## Salary Correction (Wrong Value Entered)
+
+Because `SalaryRecord` is append-only and history is immutable, HR **cannot delete or edit** a past record. Corrections are handled by creating a new revision that supersedes the incorrect one.
+
+### Workflow
+
+| Step | Action |
+|------|--------|
+| 1 | HR notices an incorrect salary value (wrong baseSalary, wrong component, wrong date) |
+| 2 | HR opens **Edit Salary** for the employee |
+| 3 | HR enters the correct values with the appropriate `effectiveDate` |
+| 4 | `reason` field is **required** — HR records why the change was made (e.g. "Correction: previous entry had incorrect base salary") |
+| 5 | New `SalaryRecord` is created and becomes the active salary (`Employee.currentSalaryId` updated) |
+| 6 | The incorrect record remains in history — visible with its `reason` and `createdAt` for audit purposes |
+
+### Rules
+
+| Scenario | Rule |
+|----------|------|
+| Wrong salary amount | Create new revision with correct amount; reason required |
+| Wrong component value | Create new revision with corrected components; reason required |
+| Wrong effective date (too far in future) | Create a new revision with a corrected date — only allowed if corrected date ≥ the wrong date (chronology constraint). If HR needs an earlier date, this requires a future enhancement (admin override). |
+| Wrong effective date (already superseded by a later revision) | Cannot backdate past an existing later revision in MVP — document as known limitation |
+| Accidental salary assignment to wrong employee | Relieve the employee if appropriate; correct salary on correct employee. No record deletion. |
+
+### Known Limitation (MVP)
+The chronology constraint (`effectiveDate ≥ latest record`) prevents HR from backdating a correction before an already-created later revision. This edge case is noted for a future **admin correction** capability with an override mechanism and mandatory audit note.
 
 ---
 

@@ -50,12 +50,12 @@ Fields: `employeeId`, `name`, `email`, `country`, `employmentType` (Permanent / 
 Directory with search, filter, sort, pagination. View employee profile with salary history.
 
 ### Compensation Management
-- **Salary templates (versioned)** — reusable packages per country/currency with fixed components. Templates are **immutable once assigned** to any employee. Structural changes require creating a **new template version** (same name/family, incremented version).
-- **Template migration (MVP)** — HR Manager migrates employees to a newer template version **individually or in bulk** (manual selection). **Automatic migration is out of scope.**
-- **Salary assignment** — link employee to a specific template version with `effectiveFrom` / `effectiveTo`
-- **Salary revision** — append-only changes with `effectiveDate`, `baseSalary`, components, `reason`, `createdBy`
-- **Stock component** — `quantity`, `vesting`, `grantDate` (basic; no full equity lifecycle)
-- One active compensation per employee at any time; history is immutable
+- **Salary templates (versioned)** — reusable blueprints per country/currency with recommended component values. Immutable once used as basis for any employee salary. Structural changes → new template version.
+- **Template migration (MVP)** — HR migrates employees to a newer template version individually (from template detail) or in bulk. **Automatic migration is out of scope.**
+- **Salary assign** — HR picks a template (pre-fills values, editable), saves as `SalaryRecord`. Sets employee's active salary.
+- **Salary edit (revision)** — HR edits current salary; saves as a new `SalaryRecord` (append-only, never overwrites). History = all records ordered by effective date.
+- **Stock component** — stored inside salary components JSON: `{ quantity, vestingDate? }`. Valued at org-level `stockPrice`.
+- One active salary per employee at any time (`Employee.currentSalaryId` → latest record)
 
 ### Dashboard & Reporting
 
@@ -120,10 +120,10 @@ Deliberately deferred to demonstrate scope discipline while acknowledging real-w
 
 ## Key Business Rules
 
-1. Salary templates are **versioned and immutable** once assigned — structural changes create a new version.
+1. Salary templates are **versioned and immutable** once used — structural changes create a new version.
 2. HR migrates employees to newer template versions **individually or in bulk**; no automatic migration in MVP.
-3. Salary revisions are **append-only** — never overwrite history.
-4. One **active** salary assignment per employee at any point in time.
+3. Every salary change creates a new **SalaryRecord** (append-only) — history is never overwritten.
+4. `Employee.currentSalaryId` always references the latest active salary record.
 5. **Left** employees retained with full history; excluded from payroll aggregates.
 6. Dashboard totals normalized to base currency via configured FX rates.
 7. Must perform over ~10,000 seeded records (pagination, indexed queries).

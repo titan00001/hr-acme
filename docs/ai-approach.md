@@ -1,5 +1,18 @@
 # AI-Assisted Development
 
+## Agent runbooks
+
+Development is driven by two specialized agents with milestone gates. See [`agents/README.md`](../agents/README.md).
+
+| Agent | Runbook | Focus |
+|-------|---------|-------|
+| Backend | [`agents/backend-agent.md`](../agents/backend-agent.md) | NestJS, Postgres, Ports & Adapters, SOLID, GoF patterns |
+| Frontend | [`agents/frontend-agent.md`](../agents/frontend-agent.md) | React, shadcn/ui, presentation + infrastructure layers |
+
+Each milestone requires user `APPROVED: <id>` before the next module — see [`agents/milestone-gate.md`](../agents/milestone-gate.md).
+
+---
+
 | Activity | AI | Human |
 |----------|-----|-------|
 | Spec & architecture | Draft structure | Finalize scope, entities, NestJS module boundaries |

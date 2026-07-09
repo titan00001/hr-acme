@@ -72,15 +72,15 @@ Utils:
 | `JWT_EXPIRES_IN` | `8h` | No (default `8h`) | Token expiry |
 | `HR_USERNAME` | `admin` | Yes | Single HR Manager login username |
 | `HR_PASSWORD` | `changeme` | Yes | Single HR Manager login password |
-| `FRONTEND_URL` | `http://localhost:3000` | Yes | Allowed CORS origin |
+| `FRONTEND_URL` | `http://localhost:5173` | Yes | Allowed CORS origin (Vite dev server) |
 
-### Frontend — `frontend/.env.local`
+### Frontend — `frontend/.env`
 
 | Variable | Example | Required | Purpose |
 |----------|---------|----------|---------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | Yes | Backend base URL for all API calls |
+| `VITE_API_URL` | `http://localhost:3001` | Yes | Backend base URL for all API calls |
 
-Both repos must include a `.env.example` committed to git (with placeholder values, never real secrets). `.env` and `.env.local` go in `.gitignore`.
+Both apps must include a `.env.example` committed to git (placeholder values only). `.env` files go in `.gitignore`.
 
 ---
 
@@ -95,7 +95,7 @@ app.enableCors({
 });
 ```
 
-`FRONTEND_URL` is `http://localhost:3000` in dev and the deployed Vercel URL in production. Without this, every browser request from the frontend will be blocked.
+`FRONTEND_URL` is `http://localhost:5173` in dev (Vite default) and the deployed static host URL in production. Without this, every browser request from the frontend will be blocked.
 
 ---
 
@@ -458,14 +458,16 @@ Pure function, no side effects. Used in `SalaryService` and tested independently
 
 ## Frontend Modules
 
+React **SPA** with **Vite**. Client-side routing via **React Router v6**. No SSR, no file-based routing.
+
 ### Dependencies (`frontend/package.json`)
 
 ```json
 {
   "dependencies": {
-    "next": "latest",
     "react": "^19",
     "react-dom": "^19",
+    "react-router-dom": "latest",
     "axios": "latest",
     "@reduxjs/toolkit": "latest",
     "react-redux": "latest",
@@ -473,11 +475,46 @@ Pure function, no side effects. Used in `SalaryService` and tested independently
     "react-hook-form": "latest",
     "@hookform/resolvers": "latest",
     "zod": "latest"
+  },
+  "devDependencies": {
+    "vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest"
   }
 }
 ```
 
-shadcn/ui is installed via CLI (`npx shadcn@latest init`) — components are copied into `src/components/ui/`, not a runtime dep.
+shadcn/ui installed via CLI — components copied into `src/components/ui/`.
+
+### Vite config (`vite.config.ts`)
+
+```ts
+export default defineConfig({
+  plugins: [react()],
+  server: { port: 5173 },
+});
+```
+
+### Routing (`src/routes/index.tsx`)
+
+```tsx
+<BrowserRouter>
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route element={<ProtectedRoute><AuthLayout /></ProtectedRoute>}>
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/employees" element={<EmployeesPage />} />
+      <Route path="/employees/:id" element={<EmployeeDetailPage />} />
+      <Route path="/employees/:id/salary/create" element={<AssignSalaryPage />} />
+      <Route path="/employees/:id/salary/edit" element={<EditSalaryPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+    </Route>
+    <Route path="*" element={<Navigate to="/dashboard" />} />
+  </Routes>
+</BrowserRouter>
+```
+
+`ProtectedRoute` — reads `isAuthenticated` from Redux; redirects to `/login` if false.
 
 ---
 
@@ -508,7 +545,7 @@ Actions: `setCredentials({ token })`, `logout()`
 
 **RTK Query base** (`src/lib/api/baseApi.ts`):
 - Uses `axiosBaseQuery` — custom `baseQuery` wrapping axios instance
-- axios instance: `baseURL = NEXT_PUBLIC_API_URL`, request interceptor injects `Authorization: Bearer <token>` from Redux store
+- axios instance: `baseURL = import.meta.env.VITE_API_URL`, request interceptor injects `Authorization: Bearer <token>` from Redux store
 
 ---
 
@@ -564,58 +601,38 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 
 ### Pages & Presentation
 
-#### `(public)/login`
-- **Components:** `LoginPage` → `LoginForm` (react-hook-form + zod)
-- **State:** calls `POST /auth/login` via axios directly (not RTK Query — pre-auth); dispatches `setCredentials`
-- **Flow:** submit → success → redirect to `/dashboard`
+#### `/login` — `LoginPage`
+- **Components:** `LoginForm` (react-hook-form + zod)
+- **State:** calls `POST /auth/login` via axios (pre-auth); dispatches `setCredentials`
+- **Flow:** submit → success → `navigate('/dashboard')`
 
-#### `(auth)/layout.tsx` — Auth Shell
-- **Components:** `GlobalHeader` (title, settings link, action slot), `Sidebar` (icon nav)
-- **Guard:** checks `isAuthenticated` from Redux; redirects unauthenticated to `/login`
-- **Sidebar items:** Employees, Dashboard, Settings (with icon + tooltip)
+#### `AuthLayout` — shell for all protected routes
+- **Components:** `GlobalHeader` (title, settings link, action slot), `Sidebar` (icon nav), `<Outlet />` for child routes
+- **Sidebar items:** Employees, Dashboard, Settings
 
-#### `(auth)/dashboard`
-- **Components:**
-  - `SummaryCards` — 3 metric cards (total payroll, avg compensation, headcount)
-  - `CountryBreakdownTable` — shadcn Table; country, payroll, headcount
-  - `SalaryDistributionChart` — Recharts BarChart from distribution buckets
-  - `CompensationTrendsChart` — Recharts LineChart; period selector (monthly/quarterly) + date range
-  - `RecentRevisionsList` — shadcn Table; latest 20 salary changes
-- **Data:** all from `dashboardApi` RTK Query hooks; loading skeletons while fetching
+#### `/dashboard` — `DashboardPage`
+- **Components:** `SummaryCards`, `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart`, `RecentRevisionsList`
+- **Data:** `dashboardApi` RTK Query hooks
 
-#### `(auth)/employees`
-- **Components:**
-  - `EmployeeFilterBar` — search input (debounced 300ms), status/type/country dropdowns
-  - `EmployeeTable` — shadcn Table with server-side pagination
-    - Columns: name, employeeId, country, type, status, actions
-  - `OnboardModal` — shadcn Dialog; `CreateEmployeeDto` form
-- **Data:** `getEmployees(query)` from `employeesApi`; query params update on filter/page change
-- **Pattern:** `useGetEmployeesQuery` re-fetches on `queryArgs` change; RTK Query handles loading/error state
+#### `/employees` — `EmployeesPage`
+- **Components:** `EmployeeFilterBar`, `EmployeeTable` (shadcn Table + server pagination), `OnboardModal`, `RelieveModal`
+- **Data:** `useGetEmployeesQuery(query)`
 
-#### `(auth)/employees/[id]`
-- **Components:**
-  - `EmployeeInfoCard` — name, email, country, type, status, joining date; Edit inline or modal
-  - `CurrentSalaryCard` — current baseSalary, components, total, currency, effective date; links to Edit/Assign
-  - `SalaryHistoryTimeline` — ordered list of all `SalaryRecord` entries; paginated
-  - `RelieveModal` — confirmation + optional reason; calls `relieveEmployee`
-  - `ActionBar` — Assign Salary / Edit Salary / Relieve buttons (context-aware — hidden if Left)
+#### `/employees/:id` — `EmployeeDetailPage`
+- **Components:** `EmployeeInfoCard`, `CurrentSalaryCard`, `SalaryHistoryTimeline`, `ActionBar`
 - **Data:** `getEmployee(id)` + `getSalaryHistory(id)`
 
-#### `(auth)/employees/[id]/salary/create` (Assign Salary)
-- **Components:** `TemplatePicker` (select template → pre-fills form), `SalaryForm`
-- **SalaryForm fields:** effectiveDate, baseSalary, currency, paymentCycle, allowances, bonus, stock (qty + vestingDate), reason
-- **Flow:** pick template → components auto-filled → HR edits values → submit → `assignSalary` → redirect to employee detail
+#### `/employees/:id/salary/create` — `AssignSalaryPage`
+- **Components:** `TemplatePicker`, `SalaryForm`
+- **Flow:** pick template → pre-fill → HR edits → `assignSalary` → `navigate` to employee detail
 
-#### `(auth)/employees/[id]/salary/edit` (Edit / Revision)
-- **Components:** `SalaryForm` (pre-filled from `currentSalary`; reason required)
-- **Flow:** pre-fill from current salary → HR changes values → submit → `editSalary` → redirect to employee detail
+#### `/employees/:id/salary/edit` — `EditSalaryPage`
+- **Components:** `SalaryForm` (pre-filled from current salary; reason required)
+- **Flow:** edit values → `editSalary` → `navigate` to employee detail
 
-#### `(auth)/settings`
-- **Sections:**
-  - **General** — baseCurrency, supportedCurrencies, supportedCountries (tag inputs), FX rates (key-value editor)
-  - **Stock** — totalStocks, stockPrice, stockPriceCurrency
-  - **Demo** — "Seed 10,000 Employees" button + "Clear All Data" button; both show confirmation dialog; live status badge (seeded/empty + count)
-- **Data:** `getSettings` + `updateSettings`; `getDemoStatus`, `seedDemo`, `clearDemo`
+#### `/settings` — `SettingsPage`
+- **Sections:** General (base currency, FX rates, countries), Stock, Demo (seed / clear all with confirmation)
+- **Data:** `settingsApi` + `demoApi`
 
 ---
 

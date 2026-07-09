@@ -132,7 +132,7 @@ Deliberately deferred to demonstrate scope discipline while acknowledging real-w
 
 ## Non-Functional
 
-- Full-stack: **NestJS** (`backend/`) + **Next.js** (`frontend/`) — single repo, separate `package.json` per app; deployed independently
+- Full-stack: **NestJS** (`backend/`) + **React + Vite** (`frontend/`) — single repo, separate `package.json` per app; deployed independently
 - **Node v24** via **nvm** (`.nvmrc` at repo root); **Yarn** for dependencies in both apps
 - Unit tests on core domain logic; Swagger API docs with Bearer auth; incremental git commits
 - Artifacts: architecture, trade-offs, AI approach

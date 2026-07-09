@@ -6,10 +6,10 @@
 |-------|--------|-----------|
 | **Backend** | NestJS + TypeScript | Enterprise framework; built-in DI; opinionated structure — fewer low-level decisions |
 | **Database** | PostgreSQL + TypeORM | Relational fit; migration support; indexes for 10k-scale queries |
-| **Frontend** | Next.js + TypeScript + shadcn/ui | JD requirement; polished HR UI quickly |
+| **Frontend** | React + Vite + TypeScript + shadcn/ui | Fast dev, simple SPA — no SSR needed for internal HR tool |
 | **Tests** | Jest (NestJS) + Vitest (shared domain) | Fast unit tests on business logic |
 | **API docs** | `@nestjs/swagger` (OpenAPI 3) | Auto-generated spec + Swagger UI; Bearer auth for protected routes |
-| **Deploy** | Vercel (`frontend/`) + Railway/Render (`backend/` + Postgres) | Deploy each app independently |
+| **Deploy** | Static host / Netlify (`frontend/`) + Railway/Render (`backend/` + Postgres) | SPA build; backend API separately |
 
 ## Toolchain
 
@@ -22,7 +22,7 @@
 ```bash
 nvm use                              # reads .nvmrc → Node 24
 cd backend && yarn install && yarn start:dev
-cd frontend && yarn install && yarn dev
+cd frontend && yarn install && yarn dev   # Vite dev server (default :5173)
 ```
 
 Do not use npm. Enable Yarn via Corepack if needed: `corepack enable`.
@@ -194,30 +194,50 @@ All compensation values normalized via `CurrencyService` using Settings `baseCur
 
 ## Frontend Structure
 
+React SPA built with **Vite**. Client-side routing via **React Router**. No SSR.
+
 ```
 frontend/
 ├── package.json
+├── vite.config.ts
+├── index.html
 ├── yarn.lock
 ├── src/
-│   ├── app/
-│   │   ├── (public)/login/    # Landing + login
-│   │   └── (auth)/            # Authenticated shell
-│   │       ├── layout.tsx     # Header + Sidebar
-│   │       ├── dashboard/
-│   │       ├── employees/
-│   │       ├── employees/onboard/
-│   │       ├── employees/[id]/
-│   │       ├── employees/[id]/salary/create/
-│   │       ├── employees/[id]/salary/edit/
-│   │       └── settings/      # General + Demo section (seed, clear all)
+│   ├── main.tsx               # React root + Redux Provider
+│   ├── App.tsx                # Router outlet
+│   ├── routes/
+│   │   └── index.tsx          # Route definitions + ProtectedRoute guard
+│   ├── layouts/
+│   │   └── AuthLayout.tsx     # GlobalHeader + Sidebar shell
+│   ├── pages/
+│   │   ├── LoginPage.tsx
+│   │   ├── DashboardPage.tsx
+│   │   ├── EmployeesPage.tsx
+│   │   ├── EmployeeDetailPage.tsx
+│   │   ├── AssignSalaryPage.tsx
+│   │   ├── EditSalaryPage.tsx
+│   │   └── SettingsPage.tsx
 │   ├── components/
 │   │   ├── layout/            # GlobalHeader, Sidebar
 │   │   └── ui/                # shadcn
 │   └── lib/
-│       ├── api.ts             # Fetch wrapper with Bearer token
-│       └── auth.ts            # Token storage from login
+│       ├── store.ts           # Redux store
+│       ├── api/               # RTK Query APIs + axiosBaseQuery
+│       └── types/             # TypeScript models
 └── ...
 ```
+
+**Routes:**
+
+| Path | Page | Auth |
+|------|------|------|
+| `/login` | LoginPage | Public |
+| `/dashboard` | DashboardPage | Protected |
+| `/employees` | EmployeesPage | Protected |
+| `/employees/:id` | EmployeeDetailPage | Protected |
+| `/employees/:id/salary/create` | AssignSalaryPage | Protected |
+| `/employees/:id/salary/edit` | EditSalaryPage | Protected |
+| `/settings` | SettingsPage | Protected |
 
 ---
 
@@ -247,6 +267,8 @@ hr-incubyte/
 │   └── src/
 ├── frontend/
 │   ├── package.json
+│   ├── vite.config.ts
+│   ├── index.html
 │   ├── yarn.lock
 │   └── src/
 └── README.md
@@ -255,10 +277,10 @@ hr-incubyte/
 | App | Install | Run |
 |-----|---------|-----|
 | Backend | `cd backend && yarn install` | `yarn start:dev` |
-| Frontend | `cd frontend && yarn install` | `yarn dev` |
+| Frontend | `cd frontend && yarn install` | `yarn dev` (Vite, :5173) |
 
 - OpenAPI spec at `backend` `/api/docs-json` — API contract source of truth
-- Frontend `NEXT_PUBLIC_API_URL` points to backend (local or deployed)
+- Frontend `VITE_API_URL` points to backend (local or deployed)
 - Submission: single repository link
 
 ---

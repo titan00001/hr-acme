@@ -12,7 +12,7 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 - Requirements, architecture, and business rules documented in `docs/`
 - `.nvmrc` (Node 24) at repo root
 - `backend/` — NestJS + Yarn, health-check endpoint, Swagger `/api/docs`
-- `frontend/` — Next.js + Yarn, `NEXT_PUBLIC_API_URL` env config
+- `frontend/` — React + Vite + Yarn, `VITE_API_URL` env config
 
 **Done when:** Both apps start locally with `yarn`.
 
@@ -82,6 +82,7 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 
 | Decision | Chosen | Alternative | Why |
 |----------|--------|-------------|-----|
+| Frontend framework | React + Vite (SPA) | Next.js | Internal HR tool needs no SSR; Vite is faster to scaffold and simpler for a client-side app |
 | State management | RTK Query for server data + `authSlice` for auth | Full Redux slices per domain | RTK Query handles caching, loading, invalidation automatically — less boilerplate |
 | HTTP client | axios wrapped in RTK Query `baseQuery` | fetch / RTK Query default `fetchBaseQuery` | axios gives interceptors (401 → logout, token injection) without extra wiring |
 

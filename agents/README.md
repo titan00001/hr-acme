@@ -77,6 +77,14 @@ FIX: <milestone-id> — <description>
 
 ## Commits
 
-- One or more commits **per milestone**
-- Message format: `feat(<module>): <milestone-id> <short description>`
-- Example: `feat(employees): M2.3 employee CRUD and left list`
+Agents **propose** commit messages in every Milestone Completion Report. They **commit only when the user explicitly asks**.
+
+- **One commit per milestone** (preferred)
+- **Format:** `<type>(<scope>): <milestone-id> <imperative summary>`
+- **Types:** `feat` (default), `chore` (scaffold), `test`, `fix` (after `FIX:` response)
+- **Examples:**
+  - `feat(employees): M2.3 add employee CRUD and left list`
+  - `feat(employees): M3.4 add employees directory with filters and pagination`
+  - `chore(backend): M0.2 scaffold nestjs app with typeorm and config`
+
+Full rules and per-milestone examples: [backend-agent.md § Commit messages](./backend-agent.md#commit-messages), [frontend-agent.md § Commit messages](./frontend-agent.md#commit-messages).

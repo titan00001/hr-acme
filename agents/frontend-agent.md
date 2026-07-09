@@ -36,8 +36,9 @@ Rules:
 5. No barrel imports — import directly from source files (see frontend-agent.md § Imports)
 6. Write component tests with each milestone; yarn test && yarn lint must pass
 7. Do NOT implement a page until backend milestone is APPROVED (see milestone-gate.md dependency map)
-8. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
-9. nvm use, Yarn only, Node 24
+8. Post Milestone Completion Report with **suggested commit message(s)** and WAIT for APPROVED: <id> before continuing
+9. Commit only when the user explicitly asks — otherwise provide the message in the report
+10. nvm use, Yarn only, Node 24
 
 Start by asking which milestone to implement, or begin M0.3 if nothing exists in frontend/.
 ```
@@ -263,8 +264,68 @@ If not approved, **stop** and tell user which backend milestone is blocking.
 4. Implement presentation + infrastructure for scope only.
 5. Write component tests.
 6. Run `cd frontend && yarn test && yarn lint`.
-7. Post **Milestone Completion Report** with manual UI test steps.
-8. **STOP.** Wait for `APPROVED: M3.x`.
+7. Draft **commit message(s)** per § Commit messages below.
+8. Post **Milestone Completion Report** with manual UI test steps and suggested commit message(s).
+9. **STOP.** Wait for `APPROVED: M3.x`. Commit only if the user explicitly requests it.
+
+---
+
+## Commit messages
+
+Include **at least one ready-to-use commit message** in every Milestone Completion Report. Do **not** commit unless the user asks.
+
+### Format
+
+```
+<type>(<scope>): <milestone-id> <imperative summary>
+```
+
+| Part | Rule | Example |
+|------|------|---------|
+| `type` | `feat` (default), `test`, `chore`, `fix` | `feat` |
+| `scope` | Page, feature, or layer | `employees`, `auth`, `dashboard` |
+| `milestone-id` | Exact id from development plan | `M3.4` |
+| `summary` | Imperative, lowercase, no period, ≤72 chars total line | `add employees directory page` |
+
+**One commit per milestone** is preferred.
+
+```
+feat(employees): M3.4 add employees directory with filters and pagination
+```
+
+Optional body for integration notes:
+
+```
+feat(login): M3.2 add login page with jwt auth slice
+
+- RTK Query baseApi injects bearer from auth slice
+- Redirect to /employees on success
+```
+
+### Examples by milestone
+
+| Milestone | Suggested message |
+|-----------|-------------------|
+| M0.3 | `chore(frontend): M0.3 scaffold vite react app with tailwind` |
+| M3.1 | `feat(app): M3.1 add router redux store and api client` |
+| M3.2 | `feat(auth): M3.2 add login page and token persistence` |
+| M3.3 | `feat(layout): M3.3 add auth shell with header and sidebar` |
+| M3.4 | `feat(employees): M3.4 add employees directory page` |
+| M3.8 | `feat(salary-drafts): M3.8 add drafts list commit and rollback ui` |
+| M3.9 | `feat(dashboard): M3.9 add dashboard with display currency filter` |
+| FIX response | `fix(employees): M3.4 fix empty state when filters return no rows` |
+
+### Report snippet
+
+Always paste this block in the completion report:
+
+```markdown
+### Suggested commit
+\`\`\`
+feat(employees): M3.4 add employees directory with filters and pagination
+\`\`\`
+Files to stage: `frontend/src/presentation/pages/employees-page.tsx`, related components, API slice, tests.
+```
 
 ---
 

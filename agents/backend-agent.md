@@ -34,8 +34,9 @@ Rules:
 3. Use Ports & Adapters — see backend-agent.md § Architecture
 4. No barrel imports — import directly from source files (see backend-agent.md § Imports)
 5. Write tests with each milestone; yarn test must pass before reporting done
-6. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
-7. nvm use, Yarn only, Node 24
+6. Post Milestone Completion Report with **suggested commit message(s)** and WAIT for APPROVED: <id> before continuing
+7. Commit only when the user explicitly asks — otherwise provide the message in the report
+8. nvm use, Yarn only, Node 24
 
 Start by asking which milestone to implement, or begin M0.2 if nothing exists in backend/.
 ```
@@ -267,8 +268,69 @@ Log at: adapter inbound (request id), adapter outbound (external call), use case
 4. Add/update port + adapter if external dependency.
 5. Write tests.
 6. Run `cd backend && yarn test && yarn lint`.
-7. Post **Milestone Completion Report** (`agents/milestone-gate.md`).
-8. **STOP.** Wait for `APPROVED: Mx.x`.
+7. Draft **commit message(s)** per § Commit messages below.
+8. Post **Milestone Completion Report** (`agents/milestone-gate.md`) including suggested commit message(s).
+9. **STOP.** Wait for `APPROVED: Mx.x`. Commit only if the user explicitly requests it.
+
+---
+
+## Commit messages
+
+Include **at least one ready-to-use commit message** in every Milestone Completion Report. Do **not** commit unless the user asks.
+
+### Format
+
+```
+<type>(<scope>): <milestone-id> <imperative summary>
+```
+
+| Part | Rule | Example |
+|------|------|---------|
+| `type` | `feat` (default), `test`, `chore`, `fix` | `feat` |
+| `scope` | NestJS module or area | `employees`, `auth`, `common` |
+| `milestone-id` | Exact id from development plan | `M2.3` |
+| `summary` | Imperative, lowercase, no period, ≤72 chars total line | `add employee CRUD and left list` |
+
+**One commit per milestone** is preferred. Split only when logically separate (e.g. migration + feature):
+
+```
+feat(employees): M2.3 add employee CRUD and left list
+```
+
+Optional body (blank line after subject) for non-obvious changes:
+
+```
+feat(salary-drafts): M2.5 add draft commit with stock snapshots
+
+- Template Method for validate → snapshot → persist flow
+- Transaction via QueryRunner on commit
+```
+
+### Examples by milestone
+
+| Milestone | Suggested message |
+|-----------|-------------------|
+| M0.2 | `chore(backend): M0.2 scaffold nestjs app with typeorm and config` |
+| M1.1 | `feat(common): M1.1 add pagination utils and app enums` |
+| M1.2 | `feat(auth): M1.2 add jwt login and global auth guard` |
+| M1.3 | `feat(common): M1.3 add swagger bearer jwt setup` |
+| M2.1 | `feat(settings): M2.1 add settings module and repository port` |
+| M2.2 | `feat(currency-rates): M2.2 add fx sync via exchange-rate port` |
+| M2.3 | `feat(employees): M2.3 add employee CRUD and left list` |
+| M2.5 | `feat(salary-drafts): M2.5 add draft lifecycle and commit flow` |
+| FIX response | `fix(employees): M2.3 fix pagination offset on page 2` |
+
+### Report snippet
+
+Always paste this block in the completion report:
+
+```markdown
+### Suggested commit
+\`\`\`
+feat(employees): M2.3 add employee CRUD and left list
+\`\`\`
+Files to stage: `backend/src/modules/employees/**`, related tests, migrations if any.
+```
 
 ---
 

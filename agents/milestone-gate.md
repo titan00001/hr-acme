@@ -11,6 +11,7 @@ Both agents **must** follow this protocol. No agent advances to the next milesto
 3. **Stop at completion** — post a Milestone Completion Report and **wait**.
 4. **No scope creep** — if you discover extra work, note it under "Deferred" and do not implement.
 5. **User tests manually** — provide exact steps in the report.
+6. **Suggest commit message** — every report includes a ready-to-use commit message (see each agent runbook § Commit messages). Agents commit only when the user explicitly asks.
 
 ---
 
@@ -23,7 +24,13 @@ Copy this into the chat when a milestone is done:
 
 **Milestone:** M2.3 — Employees module
 **Agent:** Backend
-**Branch / commits:** <commit hashes or message>
+**Branch / commits:** <commit hash if already committed, else "not committed">
+
+### Suggested commit
+```
+feat(employees): M2.3 add employee CRUD and left list
+```
+Files to stage: `<paths>`
 
 ### Delivered
 - [ ] List of files/endpoints created
@@ -93,5 +100,5 @@ A milestone is done only when **all** are true:
 - [ ] Code matches `docs/technical-plan.md` for that module
 - [ ] Tests for that milestone pass (`yarn test`)
 - [ ] No linter errors introduced
-- [ ] Completion report posted
+- [ ] Completion report posted (includes suggested commit message)
 - [ ] User replied `APPROVED: <id>`

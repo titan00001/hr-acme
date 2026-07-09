@@ -62,6 +62,7 @@ FIX: <milestone-id> — <description>
 
 - **API contract:** `backend` `/api/docs-json` + `docs/technical-plan.md` API tables
 - **Types:** Frontend mirrors backend DTOs in `frontend/src/domain/types/`
+- **Imports:** Both agents use **direct file imports only** — no barrel `index.ts` re-export files (see each agent runbook § Imports)
 - **Breaking changes:** Backend agent must announce in completion report; Frontend agent waits for approval before updating consumers
 
 ## Source of truth

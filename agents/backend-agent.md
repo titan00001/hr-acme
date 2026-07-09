@@ -32,9 +32,10 @@ Rules:
 1. Work ONLY in backend/
 2. Implement ONE milestone at a time
 3. Use Ports & Adapters — see backend-agent.md § Architecture
-4. Write tests with each milestone; yarn test must pass before reporting done
-5. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
-6. nvm use, Yarn only, Node 24
+4. No barrel imports — import directly from source files (see backend-agent.md § Imports)
+5. Write tests with each milestone; yarn test must pass before reporting done
+6. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
+7. nvm use, Yarn only, Node 24
 
 Start by asking which milestone to implement, or begin M0.2 if nothing exists in backend/.
 ```
@@ -172,6 +173,36 @@ Swap adapters in tests with **in-memory or mock implementations** of the same po
 
 ---
 
+## Imports — no barrel files
+
+**Do not use barrel imports.** Import symbols directly from the file that defines them.
+
+| Avoid | Prefer |
+|-------|--------|
+| `from './enums'` | `from './enums/employee-status.enum'` |
+| `from './index'` | `from './pagination/pagination.utils'` |
+| `from '../common'` | `from '../common/pagination/pagination-query.dto'` |
+| `export * from './foo'` in `index.ts` | Export only from `foo.ts`; no re-export hub |
+
+**Rules:**
+- **No `index.ts` / `index.tsx` re-export files** under `src/` (e.g. no `common/enums/index.ts`).
+- **One public export surface per file** — consumers import the concrete path.
+- **NestJS `*.module.ts` files are not barrels** — they declare providers/controllers only; do not add `export *` re-exports there.
+- **Tests** import the same direct paths as production code.
+
+```ts
+// Bad
+import { EmployeeStatus, PaymentCycle } from '../common/enums';
+
+// Good
+import { EmployeeStatus } from '../common/enums/employee-status.enum';
+import { PaymentCycle } from '../common/enums/payment-cycle.enum';
+```
+
+**Why:** explicit dependencies, faster IDE navigation, fewer circular-import surprises, clearer tree-shaking boundaries.
+
+---
+
 ## PostgreSQL & queries
 
 - **Indexes** per `docs/technical-plan.md` (employees: name, email, country, status, composite).
@@ -244,6 +275,8 @@ Log at: adapter inbound (request id), adapter outbound (external call), use case
 ## Do not
 
 - Touch `frontend/` files.
+- Create or use barrel `index.ts` re-export files.
+- Import from folder paths that resolve via `index.ts`.
 - Skip tests for a milestone.
 - Call ExchangeRate-API in unit tests without mock.
 - Use PostgreSQL ENUM types for `paymentCycle`.

@@ -33,10 +33,11 @@ Rules:
 2. Implement ONE milestone at a time
 3. Use presentation + infrastructure layers — see frontend-agent.md § Architecture
 4. shadcn/ui + Tailwind for all UI; composable components
-5. Write component tests with each milestone; yarn test && yarn lint must pass
-6. Do NOT implement a page until backend milestone is APPROVED (see milestone-gate.md dependency map)
-7. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
-8. nvm use, Yarn only, Node 24
+5. No barrel imports — import directly from source files (see frontend-agent.md § Imports)
+6. Write component tests with each milestone; yarn test && yarn lint must pass
+7. Do NOT implement a page until backend milestone is APPROVED (see milestone-gate.md dependency map)
+8. Post Milestone Completion Report and WAIT for APPROVED: <id> before continuing
+9. nvm use, Yarn only, Node 24
 
 Start by asking which milestone to implement, or begin M0.3 if nothing exists in frontend/.
 ```
@@ -141,6 +142,37 @@ export function EmployeesPage() {
 
 ---
 
+## Imports — no barrel files
+
+**Do not use barrel imports.** Import symbols directly from the file that defines them.
+
+| Avoid | Prefer |
+|-------|--------|
+| `from '@/presentation/components'` | `from '@/presentation/components/employees/employee-table'` |
+| `from './index'` | `from './employees-api'` |
+| `from '../types'` | `from '../types/employee.types'` |
+| `export * from './button'` in `index.ts` | Import `button.tsx` directly |
+
+**Rules:**
+- **No `index.ts` / `index.tsx` re-export files** under `src/` (no `components/index.ts`, `types/index.ts`, etc.).
+- **Pages, components, hooks, API slices** — each lives in its own file; consumers use the full path.
+- **shadcn `ui/` primitives** — import each component from its file, e.g. `from '@/presentation/components/ui/button'`, not from a custom barrel.
+- **RTK Query** — import hooks from the API file that defines the endpoint (`employees-api.ts`), not a shared `api/index.ts`.
+- **Tests** use the same direct import paths as production code.
+
+```tsx
+// Bad
+import { EmployeeTable, EmployeeFilterBar } from '@/presentation/components/employees';
+
+// Good
+import { EmployeeTable } from '@/presentation/components/employees/employee-table';
+import { EmployeeFilterBar } from '@/presentation/components/employees/employee-filter-bar';
+```
+
+**Why:** explicit module graph, better tree-shaking, easier refactors, fewer circular dependency issues.
+
+---
+
 ## shadcn/ui + Tailwind
 
 - Init: `npx shadcn@latest init` in `frontend/`.
@@ -162,7 +194,7 @@ export function EmployeesPage() {
 | Missing key on lists | Stable `id` keys |
 | Inline functions in memoized children | `useCallback` or move out |
 | Form state in Redux | react-hook-form local state |
-| API types duplicated | `domain/types/` mirrors backend DTOs |
+| API types duplicated | `domain/types/` mirrors backend DTOs — one file per domain, no barrel |
 | Giant useEffect chains | Split by concern or use RTK Query lifecycle |
 
 ---
@@ -251,6 +283,8 @@ For each UI milestone, provide:
 ## Do not
 
 - Touch `backend/` files.
+- Create or use barrel `index.ts` / `index.tsx` re-export files.
+- Import from folder paths that resolve via `index.ts`.
 - Implement pages before backend API is approved.
 - Fetch in components with raw `fetch` — use RTK Query.
 - Skip ESLint fixes.

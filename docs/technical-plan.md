@@ -34,14 +34,19 @@ Employee ──< SalaryRecord >── SalaryTemplate
 - Deps: `@nestjs/jwt`, `@nestjs/passport`, `passport`, `passport-jwt`
 
 #### `currency/`
-- `CurrencyService` (injectable, global)
+- `CurrencyService` — `normalize(amount, from, to)` using `currency_rates` table
+- `ExchangeRateApiClient` — `GET https://v6.exchangerate-api.com/v6/{API_KEY}/latest/{baseCurrency}` → parse `conversion_rates`, upsert DB
 
-| Method | Signature | Purpose |
-|--------|-----------|---------|
-| `normalize` | `(amount, from, to, fxRates) → number` | Convert amount between currencies |
-| `normalizeSalary` | `(record: SalaryRecord, targetCurrency, fxRates) → number` | Normalize total compensation to base currency |
-
-Reused by: `SalaryModule`, `DashboardModule`.
+**App enums** (`src/common/enums/`):
+```ts
+export enum PaymentCycle {
+  Monthly = 'Monthly',
+  BiWeekly = 'BiWeekly',
+  Weekly = 'Weekly',
+  Annual = 'Annual',
+}
+```
+Validated in DTOs via `@IsEnum(PaymentCycle)`. Stored as `varchar` in DB — no PostgreSQL enum type.
 
 #### `pagination/`
 | DTO | Fields |
@@ -73,6 +78,7 @@ Utils:
 | `HR_USERNAME` | `admin` | Yes | Single HR Manager login username |
 | `HR_PASSWORD` | `changeme` | Yes | Single HR Manager login password |
 | `FRONTEND_URL` | `http://localhost:5173` | Yes | Allowed CORS origin (Vite dev server) |
+| `EXCHANGE_RATE_API_KEY` | `your-api-key` | Yes | ExchangeRate-API key for FX sync |
 
 ### Frontend — `frontend/.env`
 
@@ -199,7 +205,8 @@ Indexes: `(name)`, `(email)`, `(country)`, `(status)`, `(employmentType)`, compo
 
 | Method | Logic |
 |--------|-------|
-| `findAll(query)` | TypeORM QueryBuilder; `ILIKE` on `name`/`email` for search; WHERE filters; ORDER BY safe-whitelisted; paginated |
+| `findAll(query)` | Active employees only by default; `ILIKE` search; paginated; salary in original currency |
+| `findLeft(query)` | `status = Left` — for `/employees/left` |
 | `findOne(id)` | Join `currentSalary`; throw `NotFoundException` if missing |
 | `create(dto)` | Validate `country` in Settings; check unique `employeeId`/`email`; insert |
 | `update(id, dto)` | Validate country if changed; patch fields |
@@ -211,7 +218,8 @@ Indexes: `(name)`, `(email)`, `(country)`, `(status)`, `(employmentType)`, compo
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/employees` | Paginated, searchable, filterable directory |
+| `GET` | `/employees` | Active employees directory |
+| `GET` | `/employees/left` | Left employees (excluded from dashboard) |
 | `POST` | `/employees` | Onboard employee |
 | `GET` | `/employees/:id` | Detail with current salary |
 | `PATCH` | `/employees/:id` | Update fields |
@@ -269,127 +277,138 @@ Index: `(name)`, `(country)`, `(currency)`.
 
 ---
 
-### Module 4 — `salary`
+### Module 4 — `salary-drafts`
 
-**Purpose:** Assign salary, revise salary, salary history, template migration.
+**Purpose:** Stage salary changes before commit. One draft per employee (separate table).
 
-**Entity — `SalaryRecord`:**
+**Entity — `SalaryDraft`:** Same shape as `SalaryRecord` draft fields + `employeeId` unique.
 
-| Field | Type | Constraints |
-|-------|------|-------------|
-| id | uuid | PK |
-| employeeId | uuid | FK → Employee, not null |
-| templateId | uuid | FK → SalaryTemplate, nullable (null = manual, no blueprint) |
-| effectiveDate | date | not null |
-| baseSalary | decimal(15,2) | not null |
-| currency | string | not null |
-| paymentCycle | enum | `Monthly \| BiWeekly \| Weekly \| Annual` |
-| components | jsonb | `{ allowances?, bonus?, stock?: { quantity, vestingDate? } }` |
-| totalCompensation | decimal(15,2) | stored (not computed on read) |
-| reason | string | nullable |
-| createdBy | string | not null (from JWT payload) |
+**Service — `SalaryDraftService`:**
 
-Index: `(employeeId)`, `(employeeId, effectiveDate DESC)`.
-
-**Dependencies:** `EmployeeModule`, `SalaryTemplateModule`, `SettingsModule`, `CurrencyService`.
-
-**DTOs:**
-
-| DTO | Fields |
-|-----|--------|
-| `AssignSalaryDto` | `templateId?`, `effectiveDate`, `baseSalary`, `currency`, `paymentCycle`, `components`, `reason?` |
-| `EditSalaryDto` | Same as Assign (all fields required — creates a new full record) + `reason` (required) |
-| `MigrateTemplateDto` | `targetTemplateId`, `effectiveDate`, `reason` |
-| `BulkMigrateDto` | `employeeIds: string[]`, `targetTemplateId`, `effectiveDate`, `reason` |
-| `SalaryRecordDto` | All entity fields + `templateName?` |
-| `SalaryHistoryDto` | `PaginatedResponseDto<SalaryRecordDto>` |
-
-**Service — `SalaryService`:**
-
-| Method | Logic | Pattern |
-|--------|-------|---------|
-| `assign(employeeId, dto, createdBy)` | 1. Guard: employee `Active`. 2. Guard: `currentSalaryId` is null — if not, throw `409 Conflict` ("Employee already has a salary. Use edit salary to revise."). 3. If `templateId`, call `TemplateService.markAssigned`. 4. Compute `totalCompensation` via `CurrencyService`. 5. Insert `SalaryRecord`. 6. Update `Employee.currentSalaryId`. All in **transaction**. | Unit of Work |
-| `edit(employeeId, dto, createdBy)` | 1. Guard: employee Active. 2. Validate `effectiveDate >= latest record's effectiveDate` (chronology — correction workflow: HR re-edits with correct values + mandatory reason). 3. Compute total. 4. Insert new `SalaryRecord`. 5. Update `Employee.currentSalaryId`. **Transaction**. | Unit of Work |
-| `getHistory(employeeId, query)` | Query all `SalaryRecord` for employee; paginated, ordered `effectiveDate DESC` | Repository |
-| `migrateTemplate(employeeId, dto, createdBy)` | Fetch target template; pre-fill `AssignSalaryDto` from template components; call `edit()` | Delegate |
-| `bulkMigrate(dto, createdBy)` | Loop `migrateTemplate` inside single **transaction**; collect errors per employee | Batch + Transaction |
-| `computeTotal(record, settings)` | `baseSalary + allowances + bonus + (stock.quantity × stockPrice normalized to salary currency)` | Pure util function |
-
-**Util — `computeTotalCompensation`:**
-```
-(baseSalary, components, stockPrice, stockPriceCurrency, salaryCurrency, fxRates) → decimal
-```
-Pure function, no side effects. Used in `SalaryService` and tested independently.
+| Method | Logic |
+|--------|-------|
+| `upsert(employeeId, dto, createdBy)` | Create or update draft; compute stock snapshots; one per employee |
+| `findAll(query)` | List all pending drafts for Drafts page |
+| `findOne(id)` | Single draft detail |
+| `commit(id, createdBy)` | Transaction: validate → create `SalaryRecord` with snapshots → update `currentSalaryId` → delete draft |
+| `rollback(id)` | Delete draft; no change to active salary |
 
 **Routes:**
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/employees/:id/salary` | Assign initial salary |
-| `PATCH` | `/employees/:id/salary` | Edit salary (new revision) |
-| `GET` | `/employees/:id/salary/history` | Paginated history |
-| `POST` | `/employees/:id/salary/migrate` | Migrate to new template version |
-| `POST` | `/salary/bulk-migrate` | Bulk template migration |
+| `POST` | `/employees/:id/salary/draft` | Create/update draft (assign or edit) |
+| `GET` | `/salary-drafts` | List pending drafts |
+| `GET` | `/salary-drafts/:id` | Draft detail |
+| `POST` | `/salary-drafts/:id/commit` | Commit → SalaryRecord |
+| `DELETE` | `/salary-drafts/:id` | Rollback draft |
 
 ---
 
-### Module 5 — `dashboard`
+### Module 5 — `salary`
 
-**Purpose:** Aggregated compensation analytics, normalized to base currency.
+**Purpose:** Committed salary history, template migration.
 
-**Dependencies:** `TypeORM DataSource` (raw SQL for aggregates), `CurrencyService`, `SettingsModule`.
+**Entity — `SalaryRecord`:**
 
-**DTOs:**
+| Field | Type | Notes |
+|-------|------|-------|
+| id | uuid | PK |
+| employeeId | uuid | FK |
+| templateId | uuid \| null | FK |
+| effectiveDate | date | |
+| baseSalary | decimal(15,2) | |
+| currency | string | Employee's salary currency |
+| paymentCycle | varchar | App enum validated |
+| components | jsonb | |
+| totalCompensation | decimal(15,2) | Stored at commit in `currency` |
+| stockPriceAtEntry | decimal \| null | Snapshot |
+| stockPriceCurrencyAtEntry | string \| null | Snapshot |
+| stockValueInStockCurrency | decimal \| null | `qty × stockPriceAtEntry` |
+| stockValueInSalaryCurrency | decimal \| null | Converted to employee currency |
+| fxRateUsed | decimal \| null | Rate used for stock conversion |
+| reason | string \| null | |
+| createdBy | string | |
 
-| DTO | Fields |
-|-----|--------|
-| `DashboardSummaryDto` | `totalPayroll`, `averageCompensation`, `activeEmployeeCount`, `currency` (base) |
-| `CountryBreakdownDto` | `country`, `payroll`, `headcount`, `averageCompensation`, `currency` |
-| `DistributionBucketDto` | `range` (e.g. `"0–25k"`), `count` |
-| `TrendPointDto` | `period` (e.g. `"2025-01"`), `totalPayroll`, `currency` |
-| `RecentRevisionDto` | `employeeId`, `employeeName`, `effectiveDate`, `baseSalary`, `currency`, `totalCompensation`, `reason` |
-| `TrendsQueryDto` | `period: 'monthly'\|'quarterly'`, `from: date`, `to: date` |
+**Service — `SalaryService`:**
 
-**Service — `DashboardService`:**
+| Method | Logic |
+|--------|-------|
+| `getHistory(employeeId, query)` | Paginated committed records |
+| `migrateFromTemplate(templateId, dto, createdBy)` | Bulk migrate employees; `preserveFields[]` keeps existing values, applies template for rest → creates drafts |
 
-| Method | SQL Strategy |
-|--------|-------------|
-| `getSummary()` | `JOIN employees e ON e.currentSalaryId = sr.id WHERE e.status = 'Active'`; normalize each `totalCompensation` → sum/avg |
-| `getByCountry()` | Same join + `GROUP BY e.country` |
-| `getDistribution()` | `CASE WHEN totalCompensation BETWEEN 0 AND 25000 THEN '0–25k' ...` → `COUNT(*) GROUP BY bucket` |
-| `getTrends(query)` | `DATE_TRUNC('month'\|'quarter', sr.effectiveDate)` GROUP BY period; sum `totalCompensation` normalized |
-| `getRecentRevisions(limit)` | Latest `SalaryRecord` per employee (or all recent) ordered by `createdAt DESC` |
-
-**Pattern:** All aggregates run as raw SQL via `DataSource.query()` or QueryBuilder — never load full dataset into memory.
+**Util — `computeTotalCompensation`:** Pure function; includes `stockValueInSalaryCurrency` from snapshots.
 
 **Routes:**
 
-| Method | Path | Query params | Description |
-|--------|------|-------------|-------------|
-| `GET` | `/dashboard/summary` | — | Summary cards |
-| `GET` | `/dashboard/by-country` | — | Country table |
-| `GET` | `/dashboard/distribution` | — | Histogram buckets |
-| `GET` | `/dashboard/trends` | `period`, `from`, `to` | Trend line |
-| `GET` | `/dashboard/recent-revisions` | `limit` (default 20) | Activity feed |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/employees/:id/salary/history` | Committed history |
+| `POST` | `/salary-templates/:id/migrate` | Bulk migrate with `preserveFields` → drafts |
 
 ---
 
-### Module 6 — `settings`
+### Module 6 — `currency-rates`
 
-**Purpose:** Singleton application config — base currency, FX rates, stock config.
+**Purpose:** Sync and serve FX rates from ExchangeRate-API.
+
+**Entity — `CurrencyRate`:** `baseCurrency`, `targetCurrency`, `rate`, `syncedAt`. Unique `(baseCurrency, targetCurrency)`.
+
+**Service — `CurrencyRateService`:**
+
+| Method | Logic |
+|--------|-------|
+| `sync()` | `GET /v6/{API_KEY}/latest/{baseCurrency}` → upsert all `conversion_rates` → update `Settings.lastFxSyncAt` |
+| `findAll()` | Return rates table for Settings UI |
+| `getRate(from, to)` | Lookup for `CurrencyService.normalize()` |
+
+**Routes:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/settings/currency-rates` | Rate table |
+| `POST` | `/settings/currency-rates/sync` | Trigger API sync |
+
+---
+
+### Module 7 — `dashboard`
+
+**Purpose:** Analytics for **Active employees only**. Optional display-currency conversion.
+
+**Query params (all dashboard endpoints):**
+- `displayCurrency`: `original` \| `USD` \| `INR` \| ... (supported currencies)
+- `from`, `to`: date range (trends)
+
+**Service — `DashboardService`:**
+
+| Method | Logic |
+|--------|-------|
+| `getSummary(query)` | Active only. If `original`: return breakdown per currency. Else: convert totals using DB rates. |
+| `getByCountry(query)` | Group by country; respect `displayCurrency` |
+| `getDistribution(query)` | Fixed buckets; convert if display currency set |
+| `getTrends(query)` | Filter `effectiveDate` between `from` and `to`; daily/weekly granularity |
+| `getRecentRevisions(limit)` | Latest **committed** SalaryRecords |
+
+**Routes:** `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions`
+
+---
+
+### Module 8 — `settings`
+
+**Purpose:** Singleton config — base currency, stock, supported countries/currencies. FX rates live in `currency_rates` table.
 
 **Entity — `Settings`:**
 
 | Field | Type | Notes |
 |-------|------|-------|
-| id | integer | always 1 (singleton) |
-| baseCurrency | string | default `"USD"` |
-| fxRates | jsonb | `{ "INR": 83.5, "GBP": 0.79, ... }` — rate to convert 1 unit of currency to baseCurrency |
-| supportedCurrencies | jsonb | `string[]` — currencies available for salary assignment |
-| supportedCountries | jsonb | `string[]` — countries available for employee assignment |
+| id | integer | always 1 |
+| baseCurrency | string | default `"USD"` — used as base for FX sync |
+| supportedCurrencies | jsonb | `string[]` |
+| supportedCountries | jsonb | `string[]` |
 | totalStocks | integer | org stock pool |
 | stockPrice | decimal | price per unit |
 | stockPriceCurrency | string | |
+| lastFxSyncAt | timestamp \| null | last successful sync |
 
 **DTOs:**
 
@@ -414,7 +433,7 @@ Pure function, no side effects. Used in `SalaryService` and tested independently
 
 ---
 
-### Module 7 — `demo`
+### Module 9 — `demo`
 
 **Purpose:** Seed 10k demo employees and clear all data. Exposed via Settings routes.
 
@@ -426,7 +445,7 @@ Pure function, no side effects. Used in `SalaryService` and tested independently
 |--------|-------|
 | `getStatus()` | `SELECT COUNT(*) FROM employees` → `{ seeded: boolean, employeeCount }` |
 | `seed()` | 1. Guard: only if empty. 2. Upsert Settings defaults. 3. Create ~15 salary templates across 5 countries. 4. Batch insert 10k employees (500/batch, transaction per batch). 5. Assign salary to each (SalaryRecord + update currentSalaryId). 6. Create 1–3 extra revisions for 30% of employees. Returns `{ inserted: number }`. |
-| `clear()` | `TRUNCATE salary_records, employees, salary_templates RESTART IDENTITY CASCADE` — Settings row preserved. |
+| `clear()` | `TRUNCATE salary_drafts, salary_records, employees, salary_templates RESTART IDENTITY CASCADE` |
 
 **Seed data shape:**
 - Countries: US, UK, India, Germany, Singapore (5)
@@ -528,6 +547,7 @@ store
 └── baseApi (RTK Query)    ← all server data
     ├── employeesApi
     ├── salaryApi
+    ├── salaryDraftsApi
     ├── templatesApi
     ├── dashboardApi
     ├── settingsApi
@@ -606,33 +626,34 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 - **State:** calls `POST /auth/login` via axios (pre-auth); dispatches `setCredentials`
 - **Flow:** submit → success → `navigate('/dashboard')`
 
-#### `AuthLayout` — shell for all protected routes
-- **Components:** `GlobalHeader` (title, settings link, action slot), `Sidebar` (icon nav), `<Outlet />` for child routes
-- **Sidebar items:** Employees, Dashboard, Settings
+#### `AuthLayout`
+- **Sidebar:** Employees, Left Employees, Dashboard, Drafts, Settings
 
 #### `/dashboard` — `DashboardPage`
-- **Components:** `SummaryCards`, `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart`, `RecentRevisionsList`
-- **Data:** `dashboardApi` RTK Query hooks
+- **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList`
 
 #### `/employees` — `EmployeesPage`
-- **Components:** `EmployeeFilterBar`, `EmployeeTable` (shadcn Table + server pagination), `OnboardModal`, `RelieveModal`
-- **Data:** `useGetEmployeesQuery(query)`
+- **Shows:** salary in **original currency** only
+- **Components:** `EmployeeFilterBar`, `EmployeeTable`, `OnboardModal`, `RelieveModal`
+
+#### `/employees/left` — `LeftEmployeesPage`
+- **Notice banner:** "Left employees are excluded from dashboard payroll analytics."
+- Same table pattern; read-only salary history links
+
+#### `/drafts` — `DraftsPage`
+- **Components:** `DraftsTable` — employee, proposed total, effective date, actions (Commit / Rollback / Edit)
+- **Data:** `salaryDraftsApi`
 
 #### `/employees/:id` — `EmployeeDetailPage`
-- **Components:** `EmployeeInfoCard`, `CurrentSalaryCard`, `SalaryHistoryTimeline`, `ActionBar`
+- **Components:** `EmployeeInfoCard`, `CurrentSalaryCard` (stock snapshots visible), `SalaryHistoryTimeline`, `ActionBar`
 - **Data:** `getEmployee(id)` + `getSalaryHistory(id)`
 
-#### `/employees/:id/salary/create` — `AssignSalaryPage`
-- **Components:** `TemplatePicker`, `SalaryForm`
-- **Flow:** pick template → pre-fill → HR edits → `assignSalary` → `navigate` to employee detail
-
-#### `/employees/:id/salary/edit` — `EditSalaryPage`
-- **Components:** `SalaryForm` (pre-filled from current salary; reason required)
-- **Flow:** edit values → `editSalary` → `navigate` to employee detail
+#### `/employees/:id/salary/create` & `/edit`
+- **Flow:** save draft via `POST /employees/:id/salary/draft` → redirect to `/drafts` or employee detail
 
 #### `/settings` — `SettingsPage`
-- **Sections:** General (base currency, FX rates, countries), Stock, Demo (seed / clear all with confirmation)
-- **Data:** `settingsApi` + `demoApi`
+- **Sections:** General (base currency, countries), **CurrencyRatesTable** + **Sync** button, Stock, Demo
+- **Data:** `settingsApi`, `currencyRatesApi`, `demoApi`
 
 ---
 
@@ -640,7 +661,7 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 
 - Template comparison and diff view
 - Bulk employee selection UI for migration
-- Date range picker for dashboard trends (currently period selector only)
+- Display currency toggle on employee detail (secondary line in chosen currency)
 - Exportable reports (CSV/PDF)
 
 ---

@@ -46,10 +46,12 @@ backend/
 │   │   ├── auth/
 │   │   ├── employees/         # CRUD, onboard, relieve
 │   │   ├── salary-templates/
-│   │   ├── salary/                # SalaryRecord — assign, revise, history, migrate
-│   │   ├── dashboard/         # Aggregates, normalized reporting
-│   │   ├── settings/          # Config + demo (seed, clear all)
-│   │   └── demo/              # Seed & clear-all logic (used by settings)
+│   │   ├── salary/                # SalaryRecord — assign, commit from draft, history, migrate
+│   │   ├── salary-drafts/         # Draft create/update, commit, rollback
+│   │   ├── currency-rates/        # FX sync (ExchangeRate-API) → DB
+│   │   ├── dashboard/             # Aggregates; display-currency filter
+│   │   ├── settings/              # Config + demo (seed, clear all)
+│   │   └── demo/                  # Seed & clear-all logic (used by settings)
 │   └── main.ts
 └── ...
 ```
@@ -62,8 +64,10 @@ Each feature module owns its **controller**, **service**, **entities**, and **DT
 
 ```
 Employee ──< SalaryRecord >── SalaryTemplate
+    │              │
+ currentSalaryId    └── snapshots at write (stock price, FX used)
     │
- currentSalaryId (FK → latest SalaryRecord)
+    └──< SalaryDraft (1 per employee, separate table)
 ```
 
 ### Employee
@@ -105,13 +109,55 @@ Every salary event — initial assignment or revision. Append-only. Stock stored
 | effectiveDate | date | |
 | baseSalary | decimal(15,2) | |
 | currency | string | |
-| paymentCycle | enum | `Monthly \| BiWeekly \| Weekly \| Annual` |
+| paymentCycle | string | App enum validated: `Monthly \| BiWeekly \| Weekly \| Annual` — stored as varchar, not PG enum |
 | components | jsonb | `{ allowances?, bonus?, stock?: { quantity, vestingDate? } }` |
-| totalCompensation | decimal(15,2) | Stored (computed at write time) |
+| totalCompensation | decimal(15,2) | Stored at write time, in `currency` |
+| stockPriceAtEntry | decimal(15,2) \| null | Snapshot of `Settings.stockPrice` at write |
+| stockPriceCurrencyAtEntry | string \| null | Snapshot of `Settings.stockPriceCurrency` at write |
+| stockValueInStockCurrency | decimal(15,2) \| null | `quantity × stockPriceAtEntry` |
+| stockValueInSalaryCurrency | decimal(15,2) \| null | Stock value converted to employee `currency` at write |
+| fxRateUsed | decimal(10,6) \| null | FX rate used for stock → salary currency conversion |
 | reason | string \| null | |
 | createdBy | string | HR username from JWT |
 
 Index: `(employeeId, effectiveDate DESC)`.
+
+### SalaryDraft
+Pending salary change — separate table, one draft per employee. Not visible in active salary until committed.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| employeeId | UUID | FK → Employee, **unique** (one draft per employee) |
+| templateId | UUID \| null | FK → SalaryTemplate |
+| effectiveDate | date | |
+| baseSalary | decimal(15,2) | |
+| currency | string | |
+| paymentCycle | string | App enum validated |
+| components | jsonb | Same shape as SalaryRecord |
+| stockPriceAtEntry | decimal \| null | Snapshot at draft save |
+| stockPriceCurrencyAtEntry | string \| null | |
+| stockValueInStockCurrency | decimal \| null | |
+| stockValueInSalaryCurrency | decimal \| null | |
+| fxRateUsed | decimal \| null | |
+| reason | string \| null | |
+| createdBy | string | |
+| updatedAt | timestamp | Last draft edit |
+
+Unique constraint: `(employeeId)` — only one active draft per employee.
+
+### CurrencyRate
+FX rates synced from ExchangeRate-API and stored in DB.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | UUID | PK |
+| baseCurrency | string | e.g. `USD` — matches Settings.baseCurrency |
+| targetCurrency | string | ISO 4217 code |
+| rate | decimal(10,6) | 1 baseCurrency = `rate` targetCurrency (from API `conversion_rates`) |
+| syncedAt | timestamp | Last sync time |
+
+Unique constraint: `(baseCurrency, targetCurrency)`.
 
 **Active salary:** `Employee.currentSalaryId` → direct FK lookup. Updated on every assign/edit.
 
@@ -120,25 +166,39 @@ Index: `(employeeId, effectiveDate DESC)`.
 ### Settings (singleton, id = 1)
 | Field | Purpose |
 |-------|---------|
-| baseCurrency | Reporting currency for dashboard normalization |
-| fxRates | `{ [currency]: rate }` — 1 unit of currency → baseCurrency |
+| baseCurrency | Base for FX sync and optional dashboard display filter |
 | supportedCurrencies | `string[]` — available for salary assignment |
 | supportedCountries | `string[]` — available for employee assignment |
 | totalStocks | Org-wide stock pool (backend-updatable) |
-| stockPrice | Unit price per stock |
+| stockPrice | Current unit price per stock |
 | stockPriceCurrency | Currency of stock price |
+| lastFxSyncAt | timestamp \| null — last successful ExchangeRate-API sync |
 
 ---
 
 ## Key Logic
 
-**Active salary:** `Employee.currentSalaryId` → direct FK lookup; updated atomically on every assign/edit.
+**Active salary:** `Employee.currentSalaryId` → direct FK lookup; updated on **commit** from draft.
 
-**Salary history:** All `SalaryRecord` rows for an employee, ordered by `effectiveDate DESC`.
+**Salary history:** All committed `SalaryRecord` rows, ordered by `effectiveDate DESC`.
 
-**Total compensation (stored at write):** `baseSalary + components.allowances + components.bonus + (components.stock.quantity × stockPrice normalized to salary currency)`.
+**Draft workflow:** Assign or edit salary → upsert `SalaryDraft` (one per employee) → visible on **Drafts** page → HR commits (creates `SalaryRecord`, updates `currentSalaryId`, deletes draft) or rollbacks (deletes draft).
 
-**Currency normalization (dashboard):** `normalizedAmount = originalAmount × fxRates[originalCurrency]`.
+**Total compensation (stored at write, in employee currency):**
+`baseSalary + allowances + bonus + stockValueInSalaryCurrency`
+
+**Stock snapshots at write:** Capture `stockPrice`, `stockPriceCurrency` from Settings; compute `stockValueInStockCurrency` and `stockValueInSalaryCurrency` using `CurrencyRate` from DB; store `fxRateUsed`.
+
+**Currency display — no auto-conversion in listings:**
+- Employee directory and detail → always show `totalCompensation` in `SalaryRecord.currency` (original).
+- Dashboard → **Active employees only**; no Left employees.
+- Dashboard supports `displayCurrency` filter: `original` (group/break down by native currency) or a supported currency (convert using DB rates for display only).
+
+**paymentCycle:** TypeScript app enum (`PaymentCycle`); validated in DTO/service; stored as `varchar` in DB — no PostgreSQL enum type.
+
+**FX rates:** Synced via `POST /settings/currency-rates/sync` → calls ExchangeRate-API → upserts `currency_rates` table. Settings UI shows rate table + **Sync** button.
+
+**Template migration:** From template detail page; option `preserveFields[]` — keep existing employee salary field values, apply template values only for non-preserved fields.
 
 ---
 
@@ -147,11 +207,12 @@ Index: `(employeeId, effectiveDate DESC)`.
 | Module | Endpoints |
 |--------|-----------|
 | Auth | `POST /auth/login` |
-| Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve` |
-| Salary Templates | `GET/POST /salary-templates`, `POST /salary-templates/:id/versions`, `GET /salary-templates/:id` |
-| Salary | `POST /employees/:id/salary` (assign), `PATCH /employees/:id/salary` (revise), `GET /employees/:id/salary/history` |
-| Template Migration | `POST /employees/:id/salary/migrate`, `POST /salary/bulk-migrate` |
-| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` |
+| Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve`, `GET /employees/left` |
+| Salary Templates | `GET/POST /salary-templates`, `POST /salary-templates/:id/versions`, `GET /salary-templates/:id`, `POST /salary-templates/:id/migrate` |
+| Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
+| Salary | `POST /employees/:id/salary` (assign → draft), `GET /employees/:id/salary/history` |
+| Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
+| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` — query: `displayCurrency`, `from`, `to` |
 | Settings | `GET/PATCH /settings` |
 | Settings — Demo | `POST /settings/demo/seed`, `POST /settings/demo/clear`, `GET /settings/demo/status` |
 
@@ -182,13 +243,13 @@ Canonical metric list lives in [requirements.md](./requirements.md#dashboard--re
 
 | Endpoint | Returns |
 |----------|---------|
-| `GET /dashboard/summary` | `{ totalPayroll, averageCompensation, activeEmployeeCount }` — all in base currency |
-| `GET /dashboard/by-country` | `[{ country, payroll, headcount }]` — per country, payroll normalized |
-| `GET /dashboard/distribution` | `[{ range, count }]` — e.g. `"0–50k"`, `"50k–100k"` buckets |
-| `GET /dashboard/trends` | `[{ period, totalPayroll }]` — monthly/quarterly from revision effective dates |
-| `GET /dashboard/recent-revisions` | `[{ employeeId, employeeName, effectiveDate, reason, totalCompensation }]` — paginated, limit 20 |
+| `GET /dashboard/summary` | `{ totalPayroll, averageCompensation, activeEmployeeCount }` — per `displayCurrency` filter |
+| `GET /dashboard/by-country` | `[{ country, payroll, headcount, currency }]` |
+| `GET /dashboard/distribution` | `[{ range, count }]` — fixed buckets in selected display currency |
+| `GET /dashboard/trends` | `[{ date, totalPayroll }]` — query: `from`, `to` (date range) |
+| `GET /dashboard/recent-revisions` | Latest committed salary changes, paginated |
 
-All compensation values normalized via `CurrencyService` using Settings `baseCurrency` + `fxRates`.
+**`displayCurrency` query param:** `original` (breakdown by native currency, no cross-currency sum) or any supported currency (convert via DB rates for display).
 
 ---
 
@@ -216,6 +277,8 @@ frontend/
 │   │   ├── EmployeeDetailPage.tsx
 │   │   ├── AssignSalaryPage.tsx
 │   │   ├── EditSalaryPage.tsx
+│   │   ├── DraftsPage.tsx
+│   │   ├── LeftEmployeesPage.tsx
 │   │   └── SettingsPage.tsx
 │   ├── components/
 │   │   ├── layout/            # GlobalHeader, Sidebar
@@ -233,11 +296,13 @@ frontend/
 |------|------|------|
 | `/login` | LoginPage | Public |
 | `/dashboard` | DashboardPage | Protected |
-| `/employees` | EmployeesPage | Protected |
+| `/employees` | EmployeesPage (Active only; salary in original currency) | Protected |
+| `/employees/left` | LeftEmployeesPage (notice: excluded from dashboard) | Protected |
 | `/employees/:id` | EmployeeDetailPage | Protected |
-| `/employees/:id/salary/create` | AssignSalaryPage | Protected |
-| `/employees/:id/salary/edit` | EditSalaryPage | Protected |
-| `/settings` | SettingsPage | Protected |
+| `/employees/:id/salary/create` | AssignSalaryPage → saves draft | Protected |
+| `/employees/:id/salary/edit` | EditSalaryPage → saves draft | Protected |
+| `/drafts` | DraftsPage — commit or rollback pending changes | Protected |
+| `/settings` | SettingsPage (FX table + Sync, stock, demo) | Protected |
 
 ---
 
@@ -247,7 +312,8 @@ frontend/
 |---------|----------|
 | Employee list | Server pagination; indexes on `name`, `email`, `country`, `status` |
 | Active salary | `Employee.currentSalaryId` FK — direct lookup, no window function needed |
-| Dashboard | SQL aggregates; normalize currency in service layer |
+| Dashboard | SQL aggregates; `displayCurrency` filter; Active only |
+| FX rates | `currency_rates` table; sync on demand via ExchangeRate-API |
 | Seed | Batch inserts (500–1000 rows/transaction); triggered from Settings → Demo |
 | Clear all | Truncate employee/salary tables; retain Settings row |
 

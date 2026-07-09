@@ -27,18 +27,19 @@ Web app for ACME's **HR Manager** to manage compensation for ~**10,000 employees
 | Element | Purpose |
 |---------|---------|
 | **Global header** | Title + subtext (left); Settings link + optional action buttons (right) |
-| **Sidebar** | Icon nav — Employees, Dashboard, Settings |
+| **Sidebar** | Icon nav — Employees, Left Employees, Dashboard, Drafts, Settings |
 
 ### Pages
 | Page | Purpose |
 |------|---------|
-| **Dashboard** | Compensation analytics (metrics normalized to base currency) |
-| **Employees** | Directory — search, filter, sort, pagination |
-| **Onboard employee** | Create new employee record |
-| **Relieve employee** | Mark employee as Left (retain history) |
-| **Create salary** | Assign salary via template |
-| **Edit salary** | New salary revision (append-only) |
-| **Settings** | Base currency, FX rates, stock config, **Demo** section (seed / clear all) |
+| **Dashboard** | Compensation analytics — Active employees only; `displayCurrency` filter |
+| **Employees** | Active employee directory — salary shown in **original currency** |
+| **Left employees** | Separate route — relieved employees with notice (excluded from dashboard) |
+| **Drafts** | Pending salary changes — commit or rollback before they take effect |
+| **Onboard employee** | Create new employee record (modal) |
+| **Relieve employee** | Mark employee as Left (modal) |
+| **Create / Edit salary** | Saves to **draft** (not committed until Drafts page) |
+| **Settings** | Base currency, FX rate table + Sync, stock config, **Demo** section |
 
 ---
 
@@ -50,38 +51,35 @@ Fields: `employeeId`, `name`, `email`, `country`, `employmentType` (Permanent / 
 Directory with search, filter, sort, pagination. View employee profile with salary history.
 
 ### Compensation Management
-- **Salary templates (versioned)** — reusable blueprints per country/currency with recommended component values. Immutable once used as basis for any employee salary. Structural changes → new template version.
-- **Template migration (MVP)** — HR migrates employees to a newer template version individually (from template detail) or in bulk. **Automatic migration is out of scope.**
-- **Salary assign** — HR picks a template (pre-fills values, editable), saves as `SalaryRecord`. Sets employee's active salary.
-- **Salary edit (revision)** — HR edits current salary; saves as a new `SalaryRecord` (append-only, never overwrites). History = all records ordered by effective date.
-- **Stock component** — stored inside salary components JSON: `{ quantity, vestingDate? }`. Valued at org-level `stockPrice`.
-- One active salary per employee at any time (`Employee.currentSalaryId` → latest record)
+- **Salary templates (versioned)** — reusable blueprints; immutable once used. Structural changes → new version.
+- **Template migration** — from template detail page; bulk select employees; **`preserveFields`** option keeps existing employee salary values, applies template base for non-preserved fields.
+- **Salary draft workflow** — assign or edit salary saves to `SalaryDraft` (separate table, one per employee). HR reviews on **Drafts** page → **commit** (creates `SalaryRecord`, updates `currentSalaryId`) or **rollback** (discards draft). Multiple edits allowed before commit.
+- **SalaryRecord** — committed, append-only history. `totalCompensation` stored at write in employee's currency.
+- **Stock snapshots** — at commit: store `stockPriceAtEntry`, `stockPriceCurrencyAtEntry`, `stockValueInStockCurrency`, `stockValueInSalaryCurrency`, `fxRateUsed`.
+- **paymentCycle** — app enum (`Monthly`, `BiWeekly`, `Weekly`, `Annual`); validated in code, stored as varchar in DB.
 
 ### Dashboard & Reporting
 
-All metrics normalized to **base currency** (Settings). **Active employees only** for compensation aggregates; employees without salary excluded from payroll totals but included in headcount.
+**Active employees only.** Left employees on separate `/employees/left` route — not included in any dashboard metric.
 
-| # | Metric | Description | API |
-|---|--------|-------------|-----|
-| 1 | **Total payroll** | Sum of total compensation across active employees | `GET /dashboard/summary` |
-| 2 | **Average compensation** | Mean total compensation across active employees | `GET /dashboard/summary` |
-| 3 | **Active employee count** | Total active headcount | `GET /dashboard/summary` |
-| 4 | **Payroll by country** | Total payroll grouped by employee country | `GET /dashboard/by-country` |
-| 5 | **Headcount by country** | Active employee count grouped by country | `GET /dashboard/by-country` |
-| 6 | **Salary distribution** | Compensation spread across ranges (histogram/buckets) | `GET /dashboard/distribution` |
-| 7 | **Compensation trends** | Payroll totals over time (from revision history) | `GET /dashboard/trends` |
-| 8 | **Recent revisions** | Latest salary changes org-wide, newest first | `GET /dashboard/recent-revisions` |
+| # | Metric | API |
+|---|--------|-----|
+| 1–8 | Total payroll, average, headcount, by country, distribution, trends, recent revisions | `GET /dashboard/*` |
 
-**UI layout:** Summary cards (metrics 1–3) at top → country breakdown table/chart (4–5) → distribution chart (6) → trends chart (7) → recent revisions list (8).
+**Trends:** `from` and `to` date range for granular period selection.
 
-**Currency normalization:** Values converted via Settings FX rates. Original employee currency preserved on source records.
+**Currency display filter (`displayCurrency`):**
+- `original` — show values in each employee's native currency; group/break down by currency (no blended cross-currency totals).
+- Any supported currency (e.g. `USD`) — convert using DB-synced rates for display only.
+
+**Employee listings** always show salary in **original employee currency** — no conversion.
 
 ### Settings
 
 **General**
-- **Base currency** — organization reporting currency
-- **FX rates** — manual rates to normalize multi-currency payroll
-- **Stock** — total stocks (org pool), stock price, and stock price currency
+- **Base currency** — base for FX sync (ExchangeRate-API)
+- **Currency rates table** — rates stored in DB; **Sync** button fetches latest from API
+- **Stock** — total stocks, stock price, stock price currency
 
 **Demo** (for assessors / live demos)
 - **Seed** — populate ~10,000 employees with multi-country compensation and revision history
@@ -120,13 +118,14 @@ Deliberately deferred to demonstrate scope discipline while acknowledging real-w
 
 ## Key Business Rules
 
-1. Salary templates are **versioned and immutable** once used — structural changes create a new version.
-2. HR migrates employees to newer template versions **individually or in bulk**; no automatic migration in MVP.
-3. Every salary change creates a new **SalaryRecord** (append-only) — history is never overwritten.
-4. `Employee.currentSalaryId` always references the latest active salary record.
-5. **Left** employees retained with full history; excluded from payroll aggregates.
-6. Dashboard totals normalized to base currency via configured FX rates.
-7. Must perform over ~10,000 seeded records (pagination, indexed queries).
+1. Salary changes go through **draft** first — committed `SalaryRecord` is append-only.
+2. `totalCompensation` stored at write in employee's **original currency**; listings never auto-convert.
+3. Dashboard: Active only; `displayCurrency` filter (`original` or supported currency).
+4. Left employees on separate route — excluded from dashboard.
+5. FX rates synced from ExchangeRate-API, stored in DB; manual Sync in Settings.
+6. Stock price + FX rate snapshotted on each committed `SalaryRecord`.
+7. Template migration supports `preserveFields` to keep existing employee values.
+8. Must perform over ~10,000 seeded records (pagination, indexed queries).
 
 ---
 

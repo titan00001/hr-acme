@@ -22,15 +22,29 @@ Duplicate `employeeId` or `email` should be rejected.
 |------|--------|
 | Versioned templates | Each template has a `version`. Once assigned to any employee, that version is **immutable** |
 | New version on change | Compensation structure changes create a new template version — existing assignments are untouched |
-| Manual migration (MVP) | HR migrates employees to a newer version individually or in bulk (select employees → target version) |
-| No auto-migration | Rules-based or scheduled migration is **out of MVP scope** |
-| Template as blueprint | Pick a SalaryTemplate to pre-fill salary form; HR adjusts values before saving |
-| SalaryRecord append-only | Every assign or edit creates a new `SalaryRecord` — never overwrite |
+| Manual migration (MVP) | From template detail page; bulk select; `preserveFields` keeps existing employee values |
+| Draft-first workflow | Assign/edit saves to `SalaryDraft`; commit creates `SalaryRecord`; one draft per employee |
+| SalaryRecord append-only | Committed records never edited or deleted |
 | Chronology | New `SalaryRecord.effectiveDate` must be ≥ latest existing record's effectiveDate |
-| Active record | `Employee.currentSalaryId` always points to the latest `SalaryRecord` |
-| Left employees | No new salary records after status set to Left |
+| Active record | `Employee.currentSalaryId` updated only on **draft commit** |
 
-**Total compensation** = `baseSalary` + sum(component values) + stock value (`quantity × stockPrice`, in `stockPriceCurrency`).
+**Total compensation** = `baseSalary` + allowances + bonus + `stockValueInSalaryCurrency` (stored at commit in employee's currency).
+
+**Stock snapshots (on commit):** `stockPriceAtEntry`, `stockPriceCurrencyAtEntry`, `stockValueInStockCurrency`, `stockValueInSalaryCurrency`, `fxRateUsed` — HR can see what stock was worth at time of entry.
+
+---
+
+## Salary Draft Workflow
+
+| Step | Action |
+|------|--------|
+| 1 | HR assigns or edits salary → saved to `SalaryDraft` (upsert; one per employee) |
+| 2 | Draft appears on **Drafts** page — not yet active |
+| 3 | HR can edit draft multiple times before committing |
+| 4 | **Commit** → validates → creates `SalaryRecord` with snapshots → updates `currentSalaryId` → deletes draft |
+| 5 | **Rollback** → deletes draft; employee salary unchanged |
+
+Initial assign also goes through draft (no direct commit from form).
 
 ---
 
@@ -43,10 +57,10 @@ Because `SalaryRecord` is append-only and history is immutable, HR **cannot dele
 | Step | Action |
 |------|--------|
 | 1 | HR notices an incorrect salary value (wrong baseSalary, wrong component, wrong date) |
-| 2 | HR opens **Edit Salary** for the employee |
+| 2 | HR opens **Edit Salary** → creates/updates **draft** with correct values |
 | 3 | HR enters the correct values with the appropriate `effectiveDate` |
 | 4 | `reason` field is **required** — HR records why the change was made (e.g. "Correction: previous entry had incorrect base salary") |
-| 5 | New `SalaryRecord` is created and becomes the active salary (`Employee.currentSalaryId` updated) |
+| 5 | HR **commits** draft on Drafts page → new `SalaryRecord` becomes active |
 | 6 | The incorrect record remains in history — visible with its `reason` and `createdAt` for audit purposes |
 
 ### Rules
@@ -64,23 +78,32 @@ The chronology constraint (`effectiveDate ≥ latest record`) prevents HR from b
 
 ---
 
-## Currency Normalization
+## Currency & FX Rates
 
-- Each salary record stores its **original currency**.
-- HR sets a **base currency** and **manual FX rates** in Settings.
-- Dashboard aggregates convert to base currency: `amount × fxRate[currency]`.
-- FX rates are point-in-time configuration — not historical rate tracking.
+- Employee listings and detail → always **original currency** (`SalaryRecord.currency`).
+- Dashboard → `displayCurrency` filter: `original` (per-currency breakdown) or convert to selected currency using DB rates.
+- FX rates synced from **ExchangeRate-API** (`GET /v6/{API_KEY}/latest/{baseCurrency}`) → stored in `currency_rates` table.
+- Settings shows rate table with **Sync** button; `EXCHANGE_RATE_API_KEY` in backend env.
+- Conversion is for **display only** on dashboard — source records unchanged.
+
+---
+
+## Left Employees
+
+- **Not included** in dashboard metrics or Active employee directory.
+- Separate route `/employees/left` with notice explaining exclusion from payroll analytics.
+- Full salary history retained; no new drafts after relieve.
 
 ---
 
 ## Reporting
 
-See [requirements.md — Dashboard & Reporting](./requirements.md#dashboard--reporting) for the full metrics list.
+See [requirements.md — Dashboard & Reporting](./requirements.md#dashboard--reporting).
 
-- Aggregates include **Active** employees only.
-- Employees without salary excluded from compensation totals but included in headcount.
-- Country breakdowns use employee's current `country` assignment.
-- Recent revisions listed org-wide, newest first.
+- Dashboard: **Active employees only**.
+- Left employees: separate page only.
+- Country breakdowns use employee's current `country`.
+- Trends: `from` / `to` date range.
 
 ---
 
@@ -88,7 +111,15 @@ See [requirements.md — Dashboard & Reporting](./requirements.md#dashboard--rep
 
 **Settings (org-level):** `totalStocks` (pool size, updatable on backend), `stockPrice`, `stockPriceCurrency`. No enable/disable toggle — stock is always available as an optional employee component.
 
-**Per employee (StockComponent):** `quantity`, `vesting`, `grantDate`. Valued at Settings `stockPrice` in `stockPriceCurrency`. No vesting schedules, exercise, or cap-table logic.
+**Per employee:** `quantity`, `vestingDate` in components JSON.
+
+**On commit — snapshots stored on `SalaryRecord`:**
+- `stockPriceAtEntry` / `stockPriceCurrencyAtEntry` — org stock price at commit time
+- `stockValueInStockCurrency` — `quantity × stockPriceAtEntry`
+- `stockValueInSalaryCurrency` — converted to employee currency using DB FX rate
+- `fxRateUsed` — rate applied for stock conversion
+
+HR sees both native stock value and converted value on employee detail and history.
 
 ---
 
@@ -107,7 +138,7 @@ See [requirements.md — Dashboard & Reporting](./requirements.md#dashboard--rep
 - [ ] Login → authenticated shell with header + sidebar
 - [ ] Employee directory with search/filter/sort over 10k records
 - [ ] Onboard, relieve, view profile with salary history
-- [ ] Create salary (template assignment) and edit salary (revision)
-- [ ] New template version on structural change; migrate employees individually or in bulk
-- [ ] Dashboard with base-currency-normalized metrics
-- [ ] Settings: base currency, FX rates, stock (total stocks, price, price currency), Demo (seed / clear all)
+- [ ] Draft workflow: edit → Drafts page → commit or rollback
+- [ ] Left employees on separate route; excluded from dashboard
+- [ ] Dashboard with `displayCurrency` filter and date-range trends
+- [ ] Settings: FX table + Sync, stock config, Demo (seed / clear all)

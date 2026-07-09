@@ -21,14 +21,13 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 ### M1 — Backend Core
 **Goal:** Full REST API with domain logic and database.
 
-- TypeORM entities and migrations (Employee, SalaryTemplate, SalaryRecord, Settings)
-- Auth module (JWT login + Bearer guard)
-- Swagger/OpenAPI setup (`@nestjs/swagger`, Bearer auth, `/api/docs`)
-- Employees module (CRUD, onboard, relieve)
-- Salary module (versioned templates, SalaryRecord assign/revise, individual + bulk migration)
-- Settings module (base currency, FX rates, stock config)
-- Dashboard module (aggregates with currency normalization)
-- Demo module (seed + clear all under settings)
+- TypeORM entities: Employee, SalaryTemplate, SalaryRecord, SalaryDraft, CurrencyRate, Settings
+- Auth, Swagger, Employees (incl. `GET /employees/left`)
+- Salary drafts module (create, list, commit, rollback)
+- Salary module (history, template migration with `preserveFields`)
+- Currency rates module (ExchangeRate-API sync → DB)
+- Settings module (base currency, stock, FX table)
+- Dashboard (Active only; `displayCurrency`, `from`/`to` trends)
 
 **Done when:** All API endpoints functional against Postgres; core unit tests pass.
 
@@ -39,10 +38,10 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 
 - Landing page + login
 - Auth shell (global header, sidebar, routing)
-- Employee directory, onboard, relieve
-- Create/edit salary flows
-- Dashboard (summary cards, charts)
-- Settings (general config + Demo section with seed/clear confirmation)
+- Employee directory (original currency), Left employees page, Drafts page
+- Assign/edit salary → draft flow
+- Dashboard with display-currency filter + date range trends
+- Settings: FX rate table + Sync button
 
 **Done when:** HR can complete all core workflows through the UI.
 
@@ -74,7 +73,13 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 | Auth guard | Global `JwtAuthGuard` + `@Public()` opt-out | Per-route guard | Secure by default — no route is accidentally left unprotected |
 | Salary model | `SalaryRecord` | Assignment + Revision as separate entities | Two entities with overlapping purpose confused the HR workflow; one record per salary event is simpler and auditable |
 | `currentSalaryId` on Employee | Denormalized FK to latest record | `MAX(effectiveDate)` query on every read | O(1) lookup vs O(log n) window function at 10k scale; updated atomically in transaction |
-| `totalCompensation` storage | Stored at write time | Computed on read | Avoids recalculation on every list/aggregate query; stock price change noted as a known limitation |
+| `totalCompensation` storage | Stored at write in employee currency | Computed on read | Listings show original currency; snapshots make history auditable |
+| Salary changes | Draft table → commit | Direct write to SalaryRecord | HR can review/batch before reflecting; one draft per employee |
+| FX rates | ExchangeRate-API sync → DB | Manual entry only | Live rates; Sync button in Settings |
+| paymentCycle | App TypeScript enum, varchar in DB | PostgreSQL enum | Enum for validation; DB only reads/writes strings |
+| Dashboard currency | `displayCurrency` filter (original or chosen) | Always normalize to base | Honest per-currency view; optional conversion for comparison |
+| Left employees | Separate route, excluded from dashboard | Mixed in directory with filter | Clear separation; notice on Left page |
+| Stock valuation | Snapshots on SalaryRecord at commit | Live Settings price only | HR sees stock price and converted value at time of entry |
 | Settings cache | In-memory singleton cache | Query DB on every request | FX rates and country list are read far more than written; avoids DB roundtrip on every salary validation |
 | Dashboard aggregates | Raw SQL `GROUP BY` / `DATE_TRUNC` | Load rows into service and aggregate in JS | Never loads 10k rows into memory; scales with data |
 
@@ -95,10 +100,10 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 
 | Cut | Reason |
 |-----|--------|
-| `totalCompensation` not recalculated when stock price changes | Recalculating history on stock price change would silently mutate immutable history — log this as a known limitation; future: store stock price snapshot per record |
-| No optimistic UI updates | RTK Query refetch-on-invalidate is sufficient for MVP; optimistic updates add complexity |
-| Pagination style: offset-based | Cursor-based is more performant at very large scale but adds complexity; offset + page number is sufficient for MVP |
-| FX rates: point-in-time only | Historical rate tracking (rate per revision date) is out of scope; rates are a single current snapshot |
+| Historical FX on past records | FX snapshot on stock only at commit; full per-record FX snapshot deferred |
+| No optimistic UI updates | RTK Query refetch-on-invalidate sufficient for MVP |
+| Pagination: offset-based | Sufficient for 10k with server pagination |
+| Admin backdate override | Chronology constraint remains; draft workflow covers most corrections |
 
 ---
 
@@ -107,7 +112,8 @@ Milestone-based delivery. Incremental git commits track progress within each mil
 - [ ] M0–M3 milestones complete
 - [ ] Landing login → authenticated app shell
 - [ ] Full employee + salary workflows
-- [ ] Dashboard with base-currency metrics
+- [ ] Dashboard with display-currency filter
+- [ ] Draft workflow + Left employees route
 - [ ] 10k seed; unit tests pass
 - [ ] Deployed + video demo
 - [ ] Incremental commit history reflecting milestone progress

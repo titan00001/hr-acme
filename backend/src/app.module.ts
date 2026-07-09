@@ -5,12 +5,14 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { DatabaseModule } from './common/database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     AuthModule,
+    SettingsModule,
     HealthModule,
   ],
   providers: [

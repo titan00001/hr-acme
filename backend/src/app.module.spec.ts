@@ -1,10 +1,8 @@
-import { Module } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from './app.module';
 import { DatabaseModule } from './common/database/database.module';
-
-@Module({})
-class MockDatabaseModule {}
+import { SettingsModule } from './modules/settings/settings.module';
+import { MockDatabaseModule, TestSettingsModule } from '../test/test-app.util';
 
 describe('AppModule', () => {
   it('compiles', async () => {
@@ -13,6 +11,8 @@ describe('AppModule', () => {
     })
       .overrideModule(DatabaseModule)
       .useModule(MockDatabaseModule)
+      .overrideModule(SettingsModule)
+      .useModule(TestSettingsModule)
       .compile();
 
     expect(module).toBeDefined();

@@ -1,14 +1,8 @@
-import { Module } from '@nestjs/common';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { DatabaseModule } from '../src/common/database/database.module';
 import { LoginResponseDto } from '../src/modules/auth/adapters/inbound/login-response.dto';
-
-@Module({})
-class MockDatabaseModule {}
+import { createTestModule } from './test-app.util';
 
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
@@ -21,13 +15,7 @@ describe('Auth (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideModule(DatabaseModule)
-      .useModule(MockDatabaseModule)
-      .compile();
-
+    const moduleFixture = await createTestModule();
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
       new ValidationPipe({

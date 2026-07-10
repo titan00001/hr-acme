@@ -11,6 +11,7 @@ import { SalaryDraftsModule } from './modules/salary-drafts/salary-drafts.module
 import { SalaryModule } from './modules/salary/salary.module';
 import { SalaryTemplatesModule } from './modules/salary-templates/salary-templates.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { CurrencyModule } from './common/currency/currency.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { CurrencyModule } from './common/currency/currency.module';
     SalaryTemplatesModule,
     SalaryModule,
     SalaryDraftsModule,
+    DashboardModule,
     CurrencyModule,
     HealthModule,
   ],

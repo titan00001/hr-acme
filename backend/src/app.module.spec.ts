@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { CurrencyModule } from './common/currency/currency.module';
 import { DatabaseModule } from './common/database/database.module';
 import { CurrencyRatesModule } from './modules/currency-rates/currency-rates.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { SalaryDraftsModule } from './modules/salary-drafts/salary-drafts.module';
 import { SalaryModule } from './modules/salary/salary.module';
@@ -12,6 +13,7 @@ import {
   MockDatabaseModule,
   TestCurrencyModule,
   TestCurrencyRatesModule,
+  TestDashboardModule,
   TestEmployeesModule,
   TestSalaryDraftsModule,
   TestSalaryModule,
@@ -40,6 +42,8 @@ describe('AppModule', () => {
       .useModule(TestSalaryModule)
       .overrideModule(SalaryDraftsModule)
       .useModule(TestSalaryDraftsModule)
+      .overrideModule(DashboardModule)
+      .useModule(TestDashboardModule)
       .compile();
 
     expect(module).toBeDefined();

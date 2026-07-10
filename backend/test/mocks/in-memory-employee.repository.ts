@@ -86,6 +86,10 @@ export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
     this.employees = [];
   }
 
+  all(): Employee[] {
+    return this.employees.map((row) => ({ ...row }));
+  }
+
   seed(employee: Employee): void {
     this.employees.push({ ...employee });
   }

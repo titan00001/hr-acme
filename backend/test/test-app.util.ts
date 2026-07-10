@@ -22,6 +22,10 @@ import { SalaryController } from '../src/modules/salary/adapters/inbound/salary.
 import { SalaryService } from '../src/modules/salary/application/salary.service';
 import { SALARY_RECORD_REPOSITORY } from '../src/modules/salary/ports/outbound/salary-record.repository.port';
 import { SalaryModule } from '../src/modules/salary/salary.module';
+import { DashboardController } from '../src/modules/dashboard/adapters/inbound/dashboard.controller';
+import { DashboardService } from '../src/modules/dashboard/application/dashboard.service';
+import { DASHBOARD_QUERY } from '../src/modules/dashboard/ports/outbound/dashboard-query.port';
+import { DashboardModule } from '../src/modules/dashboard/dashboard.module';
 import { SalaryTemplatesController } from '../src/modules/salary-templates/adapters/inbound/salary-templates.controller';
 import { SalaryTemplateService } from '../src/modules/salary-templates/application/salary-template.service';
 import { SALARY_TEMPLATE_REPOSITORY } from '../src/modules/salary-templates/ports/outbound/salary-template.repository.port';
@@ -31,6 +35,7 @@ import { SettingsService } from '../src/modules/settings/application/settings.se
 import { SETTINGS_REPOSITORY } from '../src/modules/settings/ports/outbound/settings.repository.port';
 import { SettingsModule } from '../src/modules/settings/settings.module';
 import { InMemoryCurrencyRateRepository } from './mocks/in-memory-currency-rate.repository';
+import { InMemoryDashboardQueryAdapter } from './mocks/in-memory-dashboard-query.adapter';
 import { InMemoryEmployeeRepository } from './mocks/in-memory-employee.repository';
 import { InMemorySalaryDraftRepository } from './mocks/in-memory-salary-draft.repository';
 import { InMemorySalaryRecordRepository } from './mocks/in-memory-salary-record.repository';
@@ -51,6 +56,10 @@ export const sharedSalaryTemplateRepository =
 export const sharedSalaryRecordRepository =
   new InMemorySalaryRecordRepository();
 export const sharedSalaryDraftRepository = new InMemorySalaryDraftRepository();
+export const sharedDashboardQuery = new InMemoryDashboardQueryAdapter(
+  () => sharedEmployeeRepository.all(),
+  () => sharedSalaryRecordRepository.all(),
+);
 
 @Module({
   controllers: [SettingsController],
@@ -232,6 +241,34 @@ export class TestSalaryModule {}
 })
 export class TestSalaryDraftsModule {}
 
+@Module({
+  controllers: [DashboardController],
+  providers: [
+    DashboardService,
+    {
+      provide: DASHBOARD_QUERY,
+      useValue: sharedDashboardQuery,
+    },
+    SettingsService,
+    {
+      provide: SETTINGS_REPOSITORY,
+      useValue: sharedSettingsRepository,
+    },
+    CurrencyRateService,
+    {
+      provide: CURRENCY_RATE_REPOSITORY,
+      useValue: sharedCurrencyRateRepository,
+    },
+    {
+      provide: EXCHANGE_RATE_PORT,
+      useValue: sharedExchangeRatePort,
+    },
+    CurrencyService,
+  ],
+  exports: [DashboardService],
+})
+export class TestDashboardModule {}
+
 export function createTestModuleBuilder() {
   return Test.createTestingModule({
     imports: [AppModule],
@@ -251,7 +288,9 @@ export function createTestModuleBuilder() {
     .overrideModule(SalaryModule)
     .useModule(TestSalaryModule)
     .overrideModule(SalaryDraftsModule)
-    .useModule(TestSalaryDraftsModule);
+    .useModule(TestSalaryDraftsModule)
+    .overrideModule(DashboardModule)
+    .useModule(TestDashboardModule);
 }
 
 export async function createTestModule(): Promise<TestingModule> {

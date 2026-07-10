@@ -42,6 +42,8 @@ describe('Swagger (e2e)', () => {
     expect(document.paths).toHaveProperty('/auth/me');
     expect(document.paths).toHaveProperty('/settings');
     expect(document.paths).toHaveProperty('/settings/currency-rates');
+    expect(document.paths).toHaveProperty('/employees');
+    expect(document.paths).toHaveProperty('/employees/left');
     expect(document.components?.securitySchemes).toHaveProperty('JWT-auth');
   });
 

@@ -7,11 +7,16 @@ import { CurrencyRateService } from '../src/modules/currency-rates/application/c
 import { CURRENCY_RATE_REPOSITORY } from '../src/modules/currency-rates/ports/outbound/currency-rate.repository.port';
 import { EXCHANGE_RATE_PORT } from '../src/modules/currency-rates/ports/outbound/exchange-rate.port';
 import { CurrencyRatesModule } from '../src/modules/currency-rates/currency-rates.module';
+import { EmployeesController } from '../src/modules/employees/adapters/inbound/employees.controller';
+import { EmployeeService } from '../src/modules/employees/application/employee.service';
+import { EMPLOYEE_REPOSITORY } from '../src/modules/employees/ports/outbound/employee.repository.port';
+import { EmployeesModule } from '../src/modules/employees/employees.module';
 import { SettingsController } from '../src/modules/settings/adapters/inbound/settings.controller';
 import { SettingsService } from '../src/modules/settings/application/settings.service';
 import { SETTINGS_REPOSITORY } from '../src/modules/settings/ports/outbound/settings.repository.port';
 import { SettingsModule } from '../src/modules/settings/settings.module';
 import { InMemoryCurrencyRateRepository } from './mocks/in-memory-currency-rate.repository';
+import { InMemoryEmployeeRepository } from './mocks/in-memory-employee.repository';
 import { InMemorySettingsRepository } from './mocks/in-memory-settings.repository';
 import { MockExchangeRatePort } from './mocks/mock-exchange-rate.port';
 
@@ -22,6 +27,7 @@ export const sharedSettingsRepository = new InMemorySettingsRepository();
 export const sharedCurrencyRateRepository =
   new InMemoryCurrencyRateRepository();
 export const sharedExchangeRatePort = new MockExchangeRatePort();
+export const sharedEmployeeRepository = new InMemoryEmployeeRepository();
 
 @Module({
   controllers: [SettingsController],
@@ -58,6 +64,24 @@ export class TestSettingsModule {}
 })
 export class TestCurrencyRatesModule {}
 
+@Module({
+  controllers: [EmployeesController],
+  providers: [
+    SettingsService,
+    {
+      provide: SETTINGS_REPOSITORY,
+      useValue: sharedSettingsRepository,
+    },
+    EmployeeService,
+    {
+      provide: EMPLOYEE_REPOSITORY,
+      useValue: sharedEmployeeRepository,
+    },
+  ],
+  exports: [EmployeeService, EMPLOYEE_REPOSITORY],
+})
+export class TestEmployeesModule {}
+
 export function createTestModuleBuilder() {
   return Test.createTestingModule({
     imports: [AppModule],
@@ -67,7 +91,9 @@ export function createTestModuleBuilder() {
     .overrideModule(SettingsModule)
     .useModule(TestSettingsModule)
     .overrideModule(CurrencyRatesModule)
-    .useModule(TestCurrencyRatesModule);
+    .useModule(TestCurrencyRatesModule)
+    .overrideModule(EmployeesModule)
+    .useModule(TestEmployeesModule);
 }
 
 export async function createTestModule(): Promise<TestingModule> {

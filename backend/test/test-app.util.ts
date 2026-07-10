@@ -26,6 +26,10 @@ import { DashboardController } from '../src/modules/dashboard/adapters/inbound/d
 import { DashboardService } from '../src/modules/dashboard/application/dashboard.service';
 import { DASHBOARD_QUERY } from '../src/modules/dashboard/ports/outbound/dashboard-query.port';
 import { DashboardModule } from '../src/modules/dashboard/dashboard.module';
+import { DemoController } from '../src/modules/demo/adapters/inbound/demo.controller';
+import { DemoService } from '../src/modules/demo/application/demo.service';
+import { DEMO_PERSISTENCE } from '../src/modules/demo/ports/outbound/demo-persistence.port';
+import { DemoModule } from '../src/modules/demo/demo.module';
 import { SalaryTemplatesController } from '../src/modules/salary-templates/adapters/inbound/salary-templates.controller';
 import { SalaryTemplateService } from '../src/modules/salary-templates/application/salary-template.service';
 import { SALARY_TEMPLATE_REPOSITORY } from '../src/modules/salary-templates/ports/outbound/salary-template.repository.port';
@@ -36,6 +40,7 @@ import { SETTINGS_REPOSITORY } from '../src/modules/settings/ports/outbound/sett
 import { SettingsModule } from '../src/modules/settings/settings.module';
 import { InMemoryCurrencyRateRepository } from './mocks/in-memory-currency-rate.repository';
 import { InMemoryDashboardQueryAdapter } from './mocks/in-memory-dashboard-query.adapter';
+import { InMemoryDemoPersistenceAdapter } from './mocks/in-memory-demo-persistence.adapter';
 import { InMemoryEmployeeRepository } from './mocks/in-memory-employee.repository';
 import { InMemorySalaryDraftRepository } from './mocks/in-memory-salary-draft.repository';
 import { InMemorySalaryRecordRepository } from './mocks/in-memory-salary-record.repository';
@@ -60,6 +65,16 @@ export const sharedDashboardQuery = new InMemoryDashboardQueryAdapter(
   () => sharedEmployeeRepository.all(),
   () => sharedSalaryRecordRepository.all(),
 );
+export const sharedDemoPersistence = new InMemoryDemoPersistenceAdapter({
+  clearEmployees: () => sharedEmployeeRepository.clear(),
+  clearDrafts: () => sharedSalaryDraftRepository.clear(),
+  clearRecords: () => sharedSalaryRecordRepository.clear(),
+  clearTemplates: () => sharedSalaryTemplateRepository.clear(),
+  countEmployees: () => sharedEmployeeRepository.all().length,
+  seedEmployee: (employee) => sharedEmployeeRepository.seed(employee),
+  seedRecord: (record) => sharedSalaryRecordRepository.seed(record),
+  seedTemplate: (template) => sharedSalaryTemplateRepository.seed(template),
+});
 
 @Module({
   controllers: [SettingsController],
@@ -269,6 +284,24 @@ export class TestSalaryDraftsModule {}
 })
 export class TestDashboardModule {}
 
+@Module({
+  controllers: [DemoController],
+  providers: [
+    DemoService,
+    {
+      provide: DEMO_PERSISTENCE,
+      useValue: sharedDemoPersistence,
+    },
+    SettingsService,
+    {
+      provide: SETTINGS_REPOSITORY,
+      useValue: sharedSettingsRepository,
+    },
+  ],
+  exports: [DemoService],
+})
+export class TestDemoModule {}
+
 export function createTestModuleBuilder() {
   return Test.createTestingModule({
     imports: [AppModule],
@@ -290,7 +323,9 @@ export function createTestModuleBuilder() {
     .overrideModule(SalaryDraftsModule)
     .useModule(TestSalaryDraftsModule)
     .overrideModule(DashboardModule)
-    .useModule(TestDashboardModule);
+    .useModule(TestDashboardModule)
+    .overrideModule(DemoModule)
+    .useModule(TestDemoModule);
 }
 
 export async function createTestModule(): Promise<TestingModule> {

@@ -51,6 +51,10 @@ export class InMemorySalaryRecordRepository implements SalaryRecordRepositoryPor
     return this.records.map((row) => this.clone(row));
   }
 
+  seed(record: SalaryRecord): void {
+    this.records.push(this.clone(record));
+  }
+
   private clone(record: SalaryRecord): SalaryRecord {
     return {
       ...record,

@@ -49,6 +49,17 @@ export class SettingsService {
     return (await this.get()).supportedCurrencies;
   }
 
+  async setLastFxSyncAt(syncedAt: Date): Promise<Settings> {
+    const current = await this.get();
+    const saved = await this.settingsRepository.save({
+      ...current,
+      lastFxSyncAt: syncedAt,
+      id: SETTINGS_ID,
+    });
+    this.cache = saved;
+    return saved;
+  }
+
   invalidateCache(): void {
     this.cache = null;
   }

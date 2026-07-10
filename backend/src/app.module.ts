@@ -5,7 +5,9 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { DatabaseModule } from './common/database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CurrencyRatesModule } from './modules/currency-rates/currency-rates.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { CurrencyModule } from './common/currency/currency.module';
 
 @Module({
   imports: [
@@ -13,6 +15,8 @@ import { SettingsModule } from './modules/settings/settings.module';
     DatabaseModule,
     AuthModule,
     SettingsModule,
+    CurrencyRatesModule,
+    CurrencyModule,
     HealthModule,
   ],
   providers: [

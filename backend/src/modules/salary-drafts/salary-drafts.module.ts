@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CurrencyModule } from '../../common/currency/currency.module';
 import { EmployeesModule } from '../employees/employees.module';
@@ -16,7 +16,7 @@ import { SALARY_DRAFT_REPOSITORY } from './ports/outbound/salary-draft.repositor
   imports: [
     TypeOrmModule.forFeature([SalaryDraftEntity]),
     EmployeesModule,
-    SalaryModule,
+    forwardRef(() => SalaryModule),
     SalaryTemplatesModule,
     SettingsModule,
     CurrencyModule,

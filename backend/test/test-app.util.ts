@@ -18,6 +18,8 @@ import { SalaryDraftService } from '../src/modules/salary-drafts/application/sal
 import { StockSnapshotService } from '../src/modules/salary-drafts/application/stock-snapshot.service';
 import { SALARY_DRAFT_REPOSITORY } from '../src/modules/salary-drafts/ports/outbound/salary-draft.repository.port';
 import { SalaryDraftsModule } from '../src/modules/salary-drafts/salary-drafts.module';
+import { SalaryController } from '../src/modules/salary/adapters/inbound/salary.controller';
+import { SalaryService } from '../src/modules/salary/application/salary.service';
 import { SALARY_RECORD_REPOSITORY } from '../src/modules/salary/ports/outbound/salary-record.repository.port';
 import { SalaryModule } from '../src/modules/salary/salary.module';
 import { SalaryTemplatesController } from '../src/modules/salary-templates/adapters/inbound/salary-templates.controller';
@@ -144,13 +146,46 @@ export class TestEmployeesModule {}
 export class TestSalaryTemplatesModule {}
 
 @Module({
+  controllers: [SalaryController],
   providers: [
+    SalaryService,
+    SettingsService,
+    {
+      provide: SETTINGS_REPOSITORY,
+      useValue: sharedSettingsRepository,
+    },
+    EmployeeService,
+    {
+      provide: EMPLOYEE_REPOSITORY,
+      useValue: sharedEmployeeRepository,
+    },
+    SalaryTemplateService,
+    {
+      provide: SALARY_TEMPLATE_REPOSITORY,
+      useValue: sharedSalaryTemplateRepository,
+    },
     {
       provide: SALARY_RECORD_REPOSITORY,
       useValue: sharedSalaryRecordRepository,
     },
+    SalaryDraftService,
+    StockSnapshotService,
+    {
+      provide: SALARY_DRAFT_REPOSITORY,
+      useValue: sharedSalaryDraftRepository,
+    },
+    CurrencyRateService,
+    {
+      provide: CURRENCY_RATE_REPOSITORY,
+      useValue: sharedCurrencyRateRepository,
+    },
+    {
+      provide: EXCHANGE_RATE_PORT,
+      useValue: sharedExchangeRatePort,
+    },
+    CurrencyService,
   ],
-  exports: [SALARY_RECORD_REPOSITORY],
+  exports: [SalaryService, SALARY_RECORD_REPOSITORY],
 })
 export class TestSalaryModule {}
 

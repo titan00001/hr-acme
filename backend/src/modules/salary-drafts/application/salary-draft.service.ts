@@ -29,10 +29,8 @@ import {
   type SalaryDraftRepositoryPort,
 } from '../ports/outbound/salary-draft.repository.port';
 import { createSalaryRecordFromDraft } from './salary-record.factory';
-import {
-  toSalaryDraftResponseDto,
-  toSalaryRecordResponseDto,
-} from './salary-draft.mapper';
+import { toSalaryDraftResponseDto } from './salary-draft.mapper';
+import { toSalaryRecordResponseDto } from '../../salary/application/salary-record.mapper';
 import { StockSnapshotService } from './stock-snapshot.service';
 
 @Injectable()

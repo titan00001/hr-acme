@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { SalaryRecord } from '../../domain/salary-record.model';
-import { SalaryRecordRepositoryPort } from '../../ports/outbound/salary-record.repository.port';
+import {
+  SalaryHistoryQuery,
+  SalaryHistoryResult,
+  SalaryRecordRepositoryPort,
+} from '../../ports/outbound/salary-record.repository.port';
 import { SalaryRecordEntity } from './salary-record.entity';
 
 function toDomain(entity: SalaryRecordEntity): SalaryRecord {
@@ -66,6 +70,26 @@ export class TypeOrmSalaryRecordRepository implements SalaryRecordRepositoryPort
   async findById(id: string): Promise<SalaryRecord | null> {
     const entity = await this.repository.findOne({ where: { id } });
     return entity ? toDomain(entity) : null;
+  }
+
+  async findByEmployeeId(
+    employeeId: string,
+    query: SalaryHistoryQuery,
+  ): Promise<SalaryHistoryResult> {
+    const qb = this.repository
+      .createQueryBuilder('record')
+      .where('record.employeeId = :employeeId', { employeeId })
+      .orderBy('record.effectiveDate', 'DESC')
+      .addOrderBy('record.createdAt', 'DESC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
+
+    const [entities, total] = await qb.getManyAndCount();
+
+    return {
+      data: entities.map(toDomain),
+      total,
+    };
   }
 
   async save(record: SalaryRecord): Promise<SalaryRecord> {

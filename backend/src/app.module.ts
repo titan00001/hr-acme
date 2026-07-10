@@ -7,6 +7,8 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CurrencyRatesModule } from './modules/currency-rates/currency-rates.module';
 import { EmployeesModule } from './modules/employees/employees.module';
+import { SalaryDraftsModule } from './modules/salary-drafts/salary-drafts.module';
+import { SalaryModule } from './modules/salary/salary.module';
 import { SalaryTemplatesModule } from './modules/salary-templates/salary-templates.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { CurrencyModule } from './common/currency/currency.module';
@@ -20,6 +22,8 @@ import { CurrencyModule } from './common/currency/currency.module';
     CurrencyRatesModule,
     EmployeesModule,
     SalaryTemplatesModule,
+    SalaryModule,
+    SalaryDraftsModule,
     CurrencyModule,
     HealthModule,
   ],

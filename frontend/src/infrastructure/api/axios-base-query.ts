@@ -40,7 +40,7 @@ export const axiosBaseQuery =
     } catch (error) {
       const axiosError = error as AxiosError;
 
-      if (axiosError.response?.status === 401) {
+      if (axiosError.response?.status === 401 && token) {
         api.dispatch(logout());
         window.location.assign('/login');
       }

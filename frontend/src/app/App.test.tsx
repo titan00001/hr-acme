@@ -11,6 +11,8 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /sign in/i }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,14 +1,6 @@
-:root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #1a1a1a;
-  background-color: #f8fafc;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@import 'tailwindcss';
+@import './presentation/styles/theme.css';
+@import './presentation/styles/animations.css';
 
 *,
 *::before,
@@ -16,12 +8,64 @@
   box-sizing: border-box;
 }
 
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--leading-normal);
+  color: var(--color-ink);
+  background-color: var(--color-canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background:
+    radial-gradient(
+      1200px 600px at 12% -10%,
+      color-mix(in srgb, var(--color-brand-soft) 80%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 100% 0%,
+      color-mix(in srgb, var(--color-accent-soft) 55%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-canvas) 0%,
+      var(--color-canvas-muted) 100%
+    );
+  background-attachment: fixed;
 }
 
 #root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--color-ink);
+}
+
+p {
+  color: var(--color-ink-muted);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.app-shell {
   min-height: 100vh;
 }

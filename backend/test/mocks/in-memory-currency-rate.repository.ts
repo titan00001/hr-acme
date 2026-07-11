@@ -47,7 +47,7 @@ export class InMemoryCurrencyRateRepository implements CurrencyRateRepositoryPor
             : `${base}-${targetCurrency}`,
         baseCurrency: base,
         targetCurrency: targetCurrency.toUpperCase(),
-        rate: rate.toFixed(6),
+        rate: rate.toFixed(8),
         syncedAt,
       };
 

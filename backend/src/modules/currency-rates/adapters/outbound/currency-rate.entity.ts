@@ -10,7 +10,7 @@ export class CurrencyRateEntity extends BaseEntity {
   @Column({ name: 'target_currency', type: 'varchar' })
   targetCurrency!: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 6 })
+  @Column({ type: 'decimal', precision: 18, scale: 8 })
   rate!: string;
 
   @Column({ name: 'synced_at', type: 'timestamptz' })

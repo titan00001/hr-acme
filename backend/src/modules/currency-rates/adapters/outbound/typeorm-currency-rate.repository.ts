@@ -54,7 +54,7 @@ export class TypeOrmCurrencyRateRepository implements CurrencyRateRepositoryPort
         const entity = new CurrencyRateEntity();
         entity.baseCurrency = base;
         entity.targetCurrency = targetCurrency.toUpperCase();
-        entity.rate = rate.toFixed(6);
+        entity.rate = rate.toFixed(8);
         entity.syncedAt = syncedAt;
         return entity;
       });

@@ -208,6 +208,8 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 
 **Fonts:** Fraunces (display) · Sora (UI) · IBM Plex Mono. **Do not** invent ad-hoc colors or system font stacks — use Tailwind theme utilities (`bg-brand`, `text-ink`, `shadow-md`, `font-display`, …) or `theme` from `tokens.ts`. Full rules: `agents/frontend-agent.md` § Design system.
 
+**API errors:** Surface failures with `ErrorHandler` / `extractApiError` (`presentation/components/feedback/`, `infrastructure/api/extract-api-error.ts`) — do not inline HTTP status parsing in pages. See `agents/frontend-agent.md` § Surfacing API errors.
+
 ### Wisdom — API contract for parallel frontend / backend
 
 **For true parallel development, a frozen API contract is mandatory** before either side builds consumers or producers in isolation. Without an agreed contract (OpenAPI / typed DTOs / example payloads), frontend and backend diverge on paths, query params, error shapes, and field names — and integration becomes rework.

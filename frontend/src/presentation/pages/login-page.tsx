@@ -3,17 +3,13 @@ import { Navigate, useNavigate } from 'react-router-dom';
 
 import type { LoginFormValues } from '@/domain/schemas/login-form.schema';
 import { useLoginMutation } from '@/infrastructure/api/auth-api';
+import { extractApiError } from '@/infrastructure/api/extract-api-error';
 import { useAppDispatch, useAppSelector } from '@/infrastructure/store/hooks';
 import { setCredentials } from '@/infrastructure/store/auth-slice';
 import { LoginForm } from '@/presentation/components/auth/login-form';
 
 function getLoginErrorMessage(error: unknown): string {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    (error as { status?: number }).status === 401
-  ) {
+  if (extractApiError(error).status === 401) {
     return 'Invalid username or password.';
   }
 

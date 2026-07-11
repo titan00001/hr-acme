@@ -90,6 +90,7 @@ frontend/src/
 │   │   ├── styles/                # Harbor Ink — theme.css, animations.css, tokens.ts
 │   │   ├── components/            # Reusable, composable
 │   │   │   ├── ui/                # shadcn primitives (wired to Harbor Ink)
+│   │   │   ├── feedback/          # ErrorHandler, ErrorAlert
 │   │   │   ├── layout/
 │   │   │   │   ├── global-header.tsx
 │   │   │   │   └── sidebar.tsx
@@ -282,6 +283,46 @@ Redux store
 - Mirror DTOs in `domain/types/` — keep in sync when backend announces changes
 - 401 → dispatch `logout()` → redirect `/login`
 
+### Surfacing API errors
+
+**Do not** inline `error.status` / Nest `message` parsing in pages. Use the shared helpers:
+
+| Piece | Path | Role |
+|-------|------|------|
+| `extractApiError` / `formatApiErrorMessage` | `infrastructure/api/extract-api-error.ts` | Normalize RTK/`axiosBaseQuery` errors |
+| `ErrorHandler` | `presentation/components/feedback/error-handler.tsx` | Render error UI |
+| `ErrorAlert` | `presentation/components/feedback/error-alert.tsx` | Default Harbor Ink danger card |
+
+```tsx
+// Default card (most list/detail pages)
+{isError ? (
+  <ErrorHandler error={error} defaultMessage="Unable to load employees" />
+) : null}
+
+// Custom presentation component (toast shell, banner, …)
+<ErrorHandler
+  error={error}
+  defaultMessage="Save failed"
+  presentation={ToastError}
+/>
+
+// Arbitrary node via render prop
+<ErrorHandler error={error} defaultMessage="Save failed">
+  {({ message, extracted }) => (
+    <div role="status" data-http={extracted.status}>{message}</div>
+  )}
+</ErrorHandler>
+
+// Message-only (e.g. form field / LoginForm serverError prop)
+serverError={error ? formatApiErrorMessage(error, 'Unable to sign in') : null}
+// or branch on extractApiError(error).status === 401
+```
+
+**Rules:**
+1. Always pass a clear `defaultMessage` for the feature.
+2. Prefer `ErrorHandler` for page/section failures; use `extractApiError` / `formatApiErrorMessage` when the host already has its own UI (forms, toasts).
+3. Do not duplicate HTTP-status string concatenation in components.
+
 ---
 
 ## Testing (per milestone)
@@ -410,3 +451,4 @@ For each UI milestone, provide:
 - Proceed without user `APPROVED`.
 - Store server data in local `useState` when RTK Query should own it.
 - Invent ad-hoc colors, fonts, or shadows — extend Harbor Ink in `presentation/styles/` instead.
+- Inline RTK/axios error status parsing in pages — use `extractApiError` / `ErrorHandler` (see § Surfacing API errors).

@@ -587,6 +587,11 @@ Actions: `setCredentials({ token })`, `logout()`
 - Request interceptor: reads token from store → sets header
 - Response interceptor: 401 → dispatch `logout()` → redirect to `/login`
 
+#### API error surfacing (frontend)
+- `infrastructure/api/extract-api-error.ts` — `extractApiError` / `formatApiErrorMessage`
+- `presentation/components/feedback/error-handler.tsx` — `ErrorHandler` (default `ErrorAlert` card; optional `presentation` component or render-prop for toast/custom nodes)
+- Pages must use these instead of inline `error.status` parsing — see `agents/frontend-agent.md` § Surfacing API errors
+
 #### `lib/api/employeesApi.ts` (RTK Query)
 
 | Endpoint | Method | Path | Tags |

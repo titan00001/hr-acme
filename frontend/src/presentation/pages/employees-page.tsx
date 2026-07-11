@@ -9,6 +9,7 @@ import {
 } from '@/presentation/components/employees/employee-filter-bar';
 import { EmployeeTable } from '@/presentation/components/employees/employee-table';
 import { PaginationControls } from '@/presentation/components/employees/pagination-controls';
+import { ErrorHandler } from '@/presentation/components/feedback/error-handler';
 import { PageHeader } from '@/presentation/components/layout/page-header';
 import { useDebouncedValue } from '@/presentation/hooks/use-debounced-value';
 
@@ -26,7 +27,10 @@ export function EmployeesPage(): React.ReactElement {
   const [filters, setFilters] = useState<EmployeeFilterValues>(initialFilters);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
-  const debouncedCountry = useDebouncedValue(filters.country, SEARCH_DEBOUNCE_MS);
+  const debouncedCountry = useDebouncedValue(
+    filters.country,
+    SEARCH_DEBOUNCE_MS,
+  );
 
   const query = useMemo((): EmployeeQuery => {
     return {
@@ -34,12 +38,8 @@ export function EmployeesPage(): React.ReactElement {
       limit: PAGE_SIZE,
       sortBy: 'name',
       sortOrder: 'ASC',
-      ...(debouncedSearch.trim()
-        ? { search: debouncedSearch.trim() }
-        : {}),
-      ...(debouncedCountry.trim()
-        ? { country: debouncedCountry.trim() }
-        : {}),
+      ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+      ...(debouncedCountry.trim() ? { country: debouncedCountry.trim() } : {}),
       ...(filters.employmentType
         ? { employmentType: filters.employmentType }
         : {}),
@@ -64,19 +64,10 @@ export function EmployeesPage(): React.ReactElement {
 
       <div className="mt-4">
         {isError ? (
-          <div
-            className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger"
-            role="alert"
-          >
-            Unable to load employees
-            {typeof error === 'object' &&
-            error !== null &&
-            'status' in error &&
-            (error as { status?: number }).status
-              ? ` (HTTP ${(error as { status?: number }).status})`
-              : ''}
-            .
-          </div>
+          <ErrorHandler
+            error={error}
+            defaultMessage="Unable to load employees"
+          />
         ) : (
           <>
             <EmployeeTable

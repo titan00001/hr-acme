@@ -438,13 +438,14 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 ### M4.1 — E2E smoke tests
 **Goal:** Critical paths verified end-to-end.
 
-- Playwright (or Cypress): login → onboard → assign draft → commit → dashboard
+- Playwright in `frontend/e2e/smoke/` (see `frontend/e2e/README.md`)
+- Login → onboard → assign draft → commit → dashboard
 - Login → Templates → create template → update → delete unused
 - Login → relieve → verify left page
-- Settings → seed → directory shows 10k
+- Settings → seed → directory shows demo count
 - **Maps to:** full Test Plan smoke coverage
 
-**Done when:** E2E suite green locally.
+**Done when:** `yarn test:e2e:smoke` green locally (backend running).
 
 ---
 

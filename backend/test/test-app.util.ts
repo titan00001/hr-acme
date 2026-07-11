@@ -339,6 +339,7 @@ export class TestSalaryDraftsModule {}
 export class TestDashboardModule {}
 
 @Module({
+  imports: [TestDashboardSnapshotsModule],
   controllers: [DemoController],
   providers: [
     DemoService,
@@ -350,6 +351,15 @@ export class TestDashboardModule {}
     {
       provide: SETTINGS_REPOSITORY,
       useValue: sharedSettingsRepository,
+    },
+    CurrencyRateService,
+    {
+      provide: CURRENCY_RATE_REPOSITORY,
+      useValue: sharedCurrencyRateRepository,
+    },
+    {
+      provide: EXCHANGE_RATE_PORT,
+      useValue: sharedExchangeRatePort,
     },
   ],
   exports: [DemoService],

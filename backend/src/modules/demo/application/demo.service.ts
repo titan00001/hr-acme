@@ -1,5 +1,7 @@
 import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CurrencyRateService } from '../../currency-rates/application/currency-rate.service';
+import { DashboardSnapshotService } from '../../dashboard/application/dashboard-snapshot.service';
 import { DEFAULT_SETTINGS } from '../../settings/domain/default-settings';
 import { SettingsService } from '../../settings/application/settings.service';
 import {
@@ -25,6 +27,8 @@ export class DemoService {
     private readonly demoPersistence: DemoPersistencePort,
     private readonly settingsService: SettingsService,
     private readonly configService: ConfigService,
+    private readonly currencyRateService: CurrencyRateService,
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
   ) {}
 
   async getStatus(): Promise<DemoStatus> {
@@ -55,12 +59,18 @@ export class DemoService {
     const targetCount = this.resolveSeedCount();
     this.logger.log(`Seeding demo data: ${targetCount} employees`);
     const result = await this.demoPersistence.seed(targetCount, createdBy);
+
+    // Bulk seed bypasses commit/relieve fan-out — sync FX then rebuild snapshots.
+    await this.currencyRateService.sync();
+    await this.dashboardSnapshotService.reconcile();
+
     this.logger.log(`Demo seed completed: inserted=${result.inserted}`);
     return result;
   }
 
   async clear(): Promise<{ cleared: true }> {
     await this.demoPersistence.clearAll();
+    await this.dashboardSnapshotService.reconcile();
     this.logger.log('Demo data cleared; settings preserved');
     return { cleared: true };
   }

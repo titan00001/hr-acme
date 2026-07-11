@@ -10,6 +10,7 @@ import { SettingsResponseDto } from '../src/modules/settings/adapters/inbound/se
 import {
   createTestModuleBuilder,
   sharedCurrencyRateRepository,
+  sharedDashboardSnapshots,
   sharedEmployeeRepository,
   sharedSalaryDraftRepository,
   sharedSalaryRecordRepository,
@@ -36,6 +37,7 @@ describe('Demo (e2e)', () => {
     sharedSalaryRecordRepository.clear();
     sharedSalaryTemplateRepository.clear();
     sharedCurrencyRateRepository.clear();
+    sharedDashboardSnapshots.clear();
 
     const moduleFixture: TestingModule =
       await createTestModuleBuilder().compile();
@@ -77,6 +79,14 @@ describe('Demo (e2e)', () => {
 
     expect((seedResponse.body as DemoSeedResponseDto).inserted).toBe(20);
 
+    const summary = await request(app.getHttpServer())
+      .get('/dashboard/summary?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(
+      (summary.body as { activeEmployeeCount: number }).activeEmployeeCount,
+    ).toBeGreaterThan(0);
+
     const statusAfter = await request(app.getHttpServer())
       .get('/settings/demo/status')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -105,6 +115,15 @@ describe('Demo (e2e)', () => {
 
     expect(sharedEmployeeRepository.all().length).toBe(20);
 
+    const summaryBefore = await request(app.getHttpServer())
+      .get('/dashboard/summary?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(
+      (summaryBefore.body as { activeEmployeeCount: number })
+        .activeEmployeeCount,
+    ).toBeGreaterThan(0);
+
     await request(app.getHttpServer())
       .post('/settings/demo/clear')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -112,6 +131,15 @@ describe('Demo (e2e)', () => {
 
     expect(sharedEmployeeRepository.all().length).toBe(0);
     expect(sharedSalaryRecordRepository.all().length).toBe(0);
+
+    const summaryAfter = await request(app.getHttpServer())
+      .get('/dashboard/summary?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(
+      (summaryAfter.body as { activeEmployeeCount: number })
+        .activeEmployeeCount,
+    ).toBe(0);
 
     const settings = await request(app.getHttpServer())
       .get('/settings')

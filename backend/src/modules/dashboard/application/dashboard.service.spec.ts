@@ -3,64 +3,78 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CurrencyService } from '../../../common/currency/currency.service';
 import { SettingsService } from '../../settings/application/settings.service';
 import { DEFAULT_SETTINGS } from '../../settings/domain/default-settings';
-import {
-  DASHBOARD_QUERY,
-  type DashboardQueryPort,
-} from '../ports/outbound/dashboard-query.port';
+import { DASHBOARD_QUERY } from '../ports/outbound/dashboard-query.port';
+import { DASHBOARD_SNAPSHOT_REPOSITORY } from '../ports/outbound/dashboard-snapshot.repository.port';
 import { DashboardService } from './dashboard.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
-  let findActiveCurrentSalariesMock: jest.MockedFunction<
-    DashboardQueryPort['findActiveCurrentSalaries']
-  >;
-  let findActiveCommittedInRangeMock: jest.MockedFunction<
-    DashboardQueryPort['findActiveCommittedInRange']
-  >;
-  let findRecentRevisionsMock: jest.MockedFunction<
-    DashboardQueryPort['findRecentRevisions']
-  >;
+  let findAllCountrySnapshotsMock: jest.Mock;
+  let findTrendSnapshotsMock: jest.Mock;
+  let findAllDistributionSnapshotsMock: jest.Mock;
+  let findRecentRevisionsMock: jest.Mock;
   let normalizeMock: jest.MockedFunction<CurrencyService['normalize']>;
 
   beforeEach(async () => {
-    findActiveCurrentSalariesMock = jest.fn();
-    findActiveCommittedInRangeMock = jest.fn();
+    findAllCountrySnapshotsMock = jest.fn().mockResolvedValue([
+      {
+        country: 'India',
+        baseCurrency: 'USD',
+        totalPayroll: '10000.0000',
+        headcount: 1,
+        updatedAt: new Date(),
+      },
+      {
+        country: 'US',
+        baseCurrency: 'USD',
+        totalPayroll: '100000.0000',
+        headcount: 1,
+        updatedAt: new Date(),
+      },
+    ]);
+    findTrendSnapshotsMock = jest.fn().mockResolvedValue([
+      {
+        effectiveDate: '2026-02-01',
+        baseCurrency: 'USD',
+        totalPayroll: '100.0000',
+        updatedAt: new Date(),
+      },
+    ]);
+    findAllDistributionSnapshotsMock = jest.fn().mockResolvedValue([
+      {
+        bucketIndex: 0,
+        label: '0–50k',
+        lowerBound: '0.0000',
+        upperBound: '50000.0000',
+        count: 2,
+        updatedAt: new Date(),
+      },
+    ]);
     findRecentRevisionsMock = jest.fn();
     normalizeMock = jest.fn((amount: number, from: string, to: string) => {
       if (from === to) {
         return Promise.resolve(amount);
       }
-      if (from === 'INR' && to === 'USD') {
-        return Promise.resolve(amount / 80);
+      if (from === 'USD' && to === 'INR') {
+        return Promise.resolve(amount * 80);
       }
       return Promise.resolve(amount);
     });
-
-    findActiveCurrentSalariesMock.mockResolvedValue([
-      {
-        employeeId: 'e1',
-        country: 'India',
-        currency: 'INR',
-        totalCompensation: '800000.00',
-        recordId: 'r1',
-      },
-      {
-        employeeId: 'e2',
-        country: 'US',
-        currency: 'USD',
-        totalCompensation: '100000.00',
-        recordId: 'r2',
-      },
-    ]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
         {
+          provide: DASHBOARD_SNAPSHOT_REPOSITORY,
+          useValue: {
+            findAllCountrySnapshots: findAllCountrySnapshotsMock,
+            findTrendSnapshots: findTrendSnapshotsMock,
+            findAllDistributionSnapshots: findAllDistributionSnapshotsMock,
+          },
+        },
+        {
           provide: DASHBOARD_QUERY,
           useValue: {
-            findActiveCurrentSalaries: findActiveCurrentSalariesMock,
-            findActiveCommittedInRange: findActiveCommittedInRangeMock,
             findRecentRevisions: findRecentRevisionsMock,
           },
         },
@@ -71,9 +85,7 @@ describe('DashboardService', () => {
         {
           provide: SettingsService,
           useValue: {
-            getCurrencies: jest
-              .fn()
-              .mockResolvedValue(DEFAULT_SETTINGS.supportedCurrencies),
+            get: jest.fn().mockResolvedValue(DEFAULT_SETTINGS),
           },
         },
       ],
@@ -82,18 +94,26 @@ describe('DashboardService', () => {
     service = module.get(DashboardService);
   });
 
-  it('summary original returns per-currency breakdown', async () => {
+  it('summary original returns base-currency breakdown without FX', async () => {
     const summary = await service.getSummary({ displayCurrency: 'original' });
     expect(summary.totalPayroll).toBeNull();
-    expect(summary.byCurrency).toHaveLength(2);
     expect(summary.activeEmployeeCount).toBe(2);
+    expect(summary.byCurrency).toEqual([
+      {
+        currency: 'USD',
+        employeeCount: 2,
+        totalPayroll: 110000,
+        averageCompensation: 55000,
+      },
+    ]);
+    expect(normalizeMock).not.toHaveBeenCalled();
   });
 
-  it('summary USD converts and blends totals', async () => {
-    const summary = await service.getSummary({ displayCurrency: 'USD' });
-    expect(summary.totalPayroll).toBe(110000);
-    expect(summary.averageCompensation).toBe(55000);
-    expect(normalizeMock).toHaveBeenCalled();
+  it('summary INR applies a single FX multiply', async () => {
+    const summary = await service.getSummary({ displayCurrency: 'INR' });
+    expect(summary.totalPayroll).toBe(8_800_000);
+    expect(summary.averageCompensation).toBe(4_400_000);
+    expect(normalizeMock).toHaveBeenCalledWith(1, 'USD', 'INR');
   });
 
   it('rejects unsupported displayCurrency', async () => {
@@ -102,28 +122,26 @@ describe('DashboardService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('trends filters by date range', async () => {
-    findActiveCommittedInRangeMock.mockResolvedValue([
-      {
-        effectiveDate: '2026-02-01',
-        currency: 'USD',
-        totalCompensation: '100.00',
-      },
-    ]);
-
+  it('trends reads snapshot range', async () => {
     const trends = await service.getTrends({
       displayCurrency: 'USD',
       from: '2026-01-01',
       to: '2026-03-01',
     });
 
-    expect(findActiveCommittedInRangeMock).toHaveBeenCalledWith(
+    expect(findTrendSnapshotsMock).toHaveBeenCalledWith(
       '2026-01-01',
       '2026-03-01',
     );
     expect(trends).toEqual([
       { date: '2026-02-01', totalPayroll: 100, currency: 'USD' },
     ]);
+  });
+
+  it('distribution scales labels by FX rate', async () => {
+    const buckets = await service.getDistribution({ displayCurrency: 'INR' });
+    expect(buckets[0]?.count).toBe(2);
+    expect(buckets[0]?.range).toContain('INR');
   });
 
   it('recent revisions returns pagination meta', async () => {

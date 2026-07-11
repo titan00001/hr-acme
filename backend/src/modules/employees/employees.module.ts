@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { SalaryRecordEntity } from '../salary/adapters/outbound/salary-record.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { EmployeeService } from './application/employee.service';
@@ -12,6 +13,7 @@ import { EMPLOYEE_REPOSITORY } from './ports/outbound/employee.repository.port';
   imports: [
     TypeOrmModule.forFeature([EmployeeEntity, SalaryRecordEntity]),
     SettingsModule,
+    forwardRef(() => DashboardModule),
   ],
   controllers: [EmployeesController],
   providers: [

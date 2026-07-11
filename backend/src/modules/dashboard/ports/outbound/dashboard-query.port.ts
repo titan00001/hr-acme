@@ -30,10 +30,16 @@ export interface RecentRevisionResult {
   total: number;
 }
 
+export interface CountryHeadcountRow {
+  country: string;
+  headcount: number;
+}
+
 export const DASHBOARD_QUERY = Symbol('DASHBOARD_QUERY');
 
 export interface DashboardQueryPort {
   findActiveCurrentSalaries(): Promise<ActiveCurrentSalaryRow[]>;
+  findActiveHeadcountByCountry(): Promise<CountryHeadcountRow[]>;
   findActiveCommittedInRange(
     from: string,
     to: string,

@@ -8,6 +8,7 @@ import {
 import { randomUUID } from 'crypto';
 import { EmployeeStatus } from '../../../common/enums/employee-status.enum';
 import { getPaginationMeta } from '../../../common/pagination/pagination.utils';
+import { DashboardSnapshotService } from '../../dashboard/application/dashboard-snapshot.service';
 import { SettingsService } from '../../settings/application/settings.service';
 import { CreateEmployeeDto } from '../adapters/inbound/create-employee.dto';
 import { EmployeeQueryDto } from '../adapters/inbound/employee-query.dto';
@@ -30,6 +31,7 @@ export class EmployeeService {
     @Inject(EMPLOYEE_REPOSITORY)
     private readonly employeeRepository: EmployeeRepositoryPort,
     private readonly settingsService: SettingsService,
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
   ) {}
 
   async findAll(query: EmployeeQueryDto): Promise<PaginatedEmployeesDto> {
@@ -99,6 +101,7 @@ export class EmployeeService {
     };
 
     const saved = await this.employeeRepository.save(employee);
+    await this.dashboardSnapshotService.onEmployeeCreated(saved.country);
     return toEmployeeResponseDto(saved, null);
   }
 
@@ -144,6 +147,11 @@ export class EmployeeService {
       throw new BadRequestException(`Employee ${id} is already Left`);
     }
 
+    const listItem = await this.employeeRepository.findListItemById(id);
+    const currency = listItem?.currentSalary?.currency ?? null;
+    const totalCompensation =
+      listItem?.currentSalary?.totalCompensation ?? null;
+
     const updated: Employee = {
       ...current,
       status: EmployeeStatus.Left,
@@ -151,6 +159,11 @@ export class EmployeeService {
     };
 
     await this.employeeRepository.update(updated);
+    await this.dashboardSnapshotService.onEmployeeRelieved({
+      country: current.country,
+      currency,
+      totalCompensation,
+    });
     return this.findOneResponse(id);
   }
 

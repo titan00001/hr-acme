@@ -37,6 +37,7 @@ import {
 } from './salary-draft.mapper';
 import { toSalaryRecordResponseDto } from '../../salary/application/salary-record.mapper';
 import { StockSnapshotService } from './stock-snapshot.service';
+import { DashboardSnapshotService } from '../../dashboard/application/dashboard-snapshot.service';
 
 @Injectable()
 export class SalaryDraftService {
@@ -51,6 +52,7 @@ export class SalaryDraftService {
     private readonly settingsService: SettingsService,
     private readonly stockSnapshotService: StockSnapshotService,
     private readonly salaryTemplateService: SalaryTemplateService,
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
   ) {}
 
   async findAll(
@@ -164,6 +166,18 @@ export class SalaryDraftService {
       );
     }
 
+    let previousCurrency: string | null = null;
+    let previousTotalCompensation: string | null = null;
+    if (employee.currentSalaryId) {
+      const previous = await this.recordRepository.findById(
+        employee.currentSalaryId,
+      );
+      if (previous) {
+        previousCurrency = previous.currency;
+        previousTotalCompensation = previous.totalCompensation;
+      }
+    }
+
     const record = createSalaryRecordFromDraft(draft, createdBy);
     const savedRecord = await this.recordRepository.save(record);
 
@@ -178,6 +192,15 @@ export class SalaryDraftService {
     }
 
     await this.draftRepository.delete(draft.id);
+
+    await this.dashboardSnapshotService.onSalaryCommitted({
+      country: employee.country,
+      effectiveDate: savedRecord.effectiveDate,
+      newCurrency: savedRecord.currency,
+      newTotalCompensation: savedRecord.totalCompensation,
+      previousCurrency,
+      previousTotalCompensation,
+    });
 
     return toSalaryRecordResponseDto(savedRecord);
   }

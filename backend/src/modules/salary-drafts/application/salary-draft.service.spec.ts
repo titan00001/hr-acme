@@ -15,6 +15,7 @@ import type { SalaryDraft } from '../domain/salary-draft.model';
 import { SALARY_DRAFT_REPOSITORY } from '../ports/outbound/salary-draft.repository.port';
 import { SalaryDraftService } from './salary-draft.service';
 import { StockSnapshotService } from './stock-snapshot.service';
+import { DashboardSnapshotService } from '../../dashboard/application/dashboard-snapshot.service';
 
 describe('SalaryDraftService', () => {
   let service: SalaryDraftService;
@@ -28,6 +29,7 @@ describe('SalaryDraftService', () => {
   let findEmployeeMock: jest.Mock;
   let captureMock: jest.Mock;
   let markAssignedMock: jest.Mock;
+  let onSalaryCommittedMock: jest.Mock;
 
   const employee: Employee = {
     id: 'emp-1',
@@ -82,6 +84,7 @@ describe('SalaryDraftService', () => {
       fxRateUsed: null,
     });
     markAssignedMock = jest.fn().mockResolvedValue({});
+    onSalaryCommittedMock = jest.fn().mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -135,6 +138,10 @@ describe('SalaryDraftService', () => {
         {
           provide: CurrencyService,
           useValue: {},
+        },
+        {
+          provide: DashboardSnapshotService,
+          useValue: { onSalaryCommitted: onSalaryCommittedMock },
         },
       ],
     }).compile();
@@ -198,6 +205,14 @@ describe('SalaryDraftService', () => {
     );
     expect(deleteDraftMock).toHaveBeenCalledWith('draft-1');
     expect(record.totalCompensation).toBe('1250000.00');
+    expect(onSalaryCommittedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        country: 'India',
+        effectiveDate: '2026-04-01',
+        newCurrency: 'INR',
+        newTotalCompensation: '1250000.00',
+      }),
+    );
   });
 
   it('marks template assigned on commit when templateId set', async () => {

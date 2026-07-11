@@ -23,8 +23,11 @@ import { SalaryService } from '../src/modules/salary/application/salary.service'
 import { SALARY_RECORD_REPOSITORY } from '../src/modules/salary/ports/outbound/salary-record.repository.port';
 import { SalaryModule } from '../src/modules/salary/salary.module';
 import { DashboardController } from '../src/modules/dashboard/adapters/inbound/dashboard.controller';
+import { DashboardReconcileController } from '../src/modules/dashboard/adapters/inbound/dashboard-reconcile.controller';
 import { DashboardService } from '../src/modules/dashboard/application/dashboard.service';
+import { DashboardSnapshotService } from '../src/modules/dashboard/application/dashboard-snapshot.service';
 import { DASHBOARD_QUERY } from '../src/modules/dashboard/ports/outbound/dashboard-query.port';
+import { DASHBOARD_SNAPSHOT_REPOSITORY } from '../src/modules/dashboard/ports/outbound/dashboard-snapshot.repository.port';
 import { DashboardModule } from '../src/modules/dashboard/dashboard.module';
 import { DemoController } from '../src/modules/demo/adapters/inbound/demo.controller';
 import { DemoService } from '../src/modules/demo/application/demo.service';
@@ -40,6 +43,7 @@ import { SETTINGS_REPOSITORY } from '../src/modules/settings/ports/outbound/sett
 import { SettingsModule } from '../src/modules/settings/settings.module';
 import { InMemoryCurrencyRateRepository } from './mocks/in-memory-currency-rate.repository';
 import { InMemoryDashboardQueryAdapter } from './mocks/in-memory-dashboard-query.adapter';
+import { InMemoryDashboardSnapshotRepository } from './mocks/in-memory-dashboard-snapshot.repository';
 import { InMemoryDemoPersistenceAdapter } from './mocks/in-memory-demo-persistence.adapter';
 import { InMemoryEmployeeRepository } from './mocks/in-memory-employee.repository';
 import { InMemorySalaryDraftRepository } from './mocks/in-memory-salary-draft.repository';
@@ -61,6 +65,8 @@ export const sharedSalaryTemplateRepository =
 export const sharedSalaryRecordRepository =
   new InMemorySalaryRecordRepository();
 export const sharedSalaryDraftRepository = new InMemorySalaryDraftRepository();
+export const sharedDashboardSnapshots =
+  new InMemoryDashboardSnapshotRepository();
 
 sharedEmployeeRepository.setSalaryLookup((salaryId) => {
   const record = sharedSalaryRecordRepository
@@ -162,6 +168,44 @@ export class TestCurrencyRatesModule {}
 export class TestCurrencyModule {}
 
 @Module({
+  providers: [
+    DashboardSnapshotService,
+    {
+      provide: DASHBOARD_SNAPSHOT_REPOSITORY,
+      useValue: sharedDashboardSnapshots,
+    },
+    {
+      provide: DASHBOARD_QUERY,
+      useValue: sharedDashboardQuery,
+    },
+    SettingsService,
+    {
+      provide: SETTINGS_REPOSITORY,
+      useValue: sharedSettingsRepository,
+    },
+    CurrencyRateService,
+    {
+      provide: CURRENCY_RATE_REPOSITORY,
+      useValue: sharedCurrencyRateRepository,
+    },
+    {
+      provide: EXCHANGE_RATE_PORT,
+      useValue: sharedExchangeRatePort,
+    },
+    CurrencyService,
+  ],
+  exports: [
+    DashboardSnapshotService,
+    DASHBOARD_SNAPSHOT_REPOSITORY,
+    DASHBOARD_QUERY,
+    CurrencyService,
+    SettingsService,
+  ],
+})
+export class TestDashboardSnapshotsModule {}
+
+@Module({
+  imports: [TestDashboardSnapshotsModule],
   controllers: [EmployeesController],
   providers: [
     SettingsService,
@@ -175,7 +219,7 @@ export class TestCurrencyModule {}
       useValue: sharedEmployeeRepository,
     },
   ],
-  exports: [EmployeeService, EMPLOYEE_REPOSITORY],
+  exports: [EmployeeService, EMPLOYEE_REPOSITORY, TestDashboardSnapshotsModule],
 })
 export class TestEmployeesModule {}
 
@@ -198,6 +242,7 @@ export class TestEmployeesModule {}
 export class TestSalaryTemplatesModule {}
 
 @Module({
+  imports: [TestDashboardSnapshotsModule],
   controllers: [SalaryController],
   providers: [
     SalaryService,
@@ -242,6 +287,7 @@ export class TestSalaryTemplatesModule {}
 export class TestSalaryModule {}
 
 @Module({
+  imports: [TestDashboardSnapshotsModule],
   controllers: [SalaryDraftsController],
   providers: [
     SalaryDraftService,
@@ -285,30 +331,10 @@ export class TestSalaryModule {}
 export class TestSalaryDraftsModule {}
 
 @Module({
-  controllers: [DashboardController],
-  providers: [
-    DashboardService,
-    {
-      provide: DASHBOARD_QUERY,
-      useValue: sharedDashboardQuery,
-    },
-    SettingsService,
-    {
-      provide: SETTINGS_REPOSITORY,
-      useValue: sharedSettingsRepository,
-    },
-    CurrencyRateService,
-    {
-      provide: CURRENCY_RATE_REPOSITORY,
-      useValue: sharedCurrencyRateRepository,
-    },
-    {
-      provide: EXCHANGE_RATE_PORT,
-      useValue: sharedExchangeRatePort,
-    },
-    CurrencyService,
-  ],
-  exports: [DashboardService],
+  imports: [TestDashboardSnapshotsModule],
+  controllers: [DashboardController, DashboardReconcileController],
+  providers: [DashboardService],
+  exports: [DashboardService, TestDashboardSnapshotsModule],
 })
 export class TestDashboardModule {}
 

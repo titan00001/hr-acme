@@ -6,6 +6,7 @@ import { EmployeeEntity } from '../../../employees/adapters/outbound/employee.en
 import { SalaryRecordEntity } from '../../../salary/adapters/outbound/salary-record.entity';
 import type {
   ActiveCurrentSalaryRow,
+  CountryHeadcountRow,
   DashboardQueryPort,
   RecentRevisionResult,
   TrendSalaryRow,
@@ -50,6 +51,21 @@ export class TypeOrmDashboardQueryAdapter implements DashboardQueryPort {
       currency: row.currency,
       totalCompensation: String(row.totalCompensation),
       recordId: row.recordId,
+    }));
+  }
+
+  async findActiveHeadcountByCountry(): Promise<CountryHeadcountRow[]> {
+    const rows = await this.employeeRepository
+      .createQueryBuilder('employee')
+      .where('employee.status = :status', { status: EmployeeStatus.Active })
+      .select('employee.country', 'country')
+      .addSelect('COUNT(*)', 'headcount')
+      .groupBy('employee.country')
+      .getRawMany<{ country: string; headcount: string }>();
+
+    return rows.map((row) => ({
+      country: row.country,
+      headcount: Number(row.headcount),
     }));
   }
 

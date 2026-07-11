@@ -11,6 +11,7 @@ import { EmployeeResponseDto } from '../src/modules/employees/adapters/inbound/e
 import {
   createTestModuleBuilder,
   sharedCurrencyRateRepository,
+  sharedDashboardSnapshots,
   sharedEmployeeRepository,
   sharedSalaryDraftRepository,
   sharedSalaryRecordRepository,
@@ -34,6 +35,7 @@ describe('Dashboard (e2e)', () => {
     sharedSalaryDraftRepository.clear();
     sharedSalaryRecordRepository.clear();
     sharedCurrencyRateRepository.clear();
+    sharedDashboardSnapshots.clear();
 
     sharedCurrencyRateRepository.seed({
       id: 'rate-usd-inr',
@@ -116,7 +118,7 @@ describe('Dashboard (e2e)', () => {
       .expect(200);
   }
 
-  it('summary original breaks down by currency and excludes Left', async () => {
+  it('summary uses snapshots; commit/relieve update; Left excluded', async () => {
     const activeInr = await createEmployee({
       employeeId: 'E001',
       name: 'Ada',
@@ -166,7 +168,13 @@ describe('Dashboard (e2e)', () => {
     const originalBody = original.body as DashboardSummaryDto;
     expect(originalBody.activeEmployeeCount).toBe(2);
     expect(originalBody.totalPayroll).toBeNull();
-    expect(originalBody.byCurrency).toHaveLength(2);
+    expect(originalBody.byCurrency).toEqual([
+      expect.objectContaining({
+        currency: 'USD',
+        employeeCount: 2,
+        totalPayroll: 110000,
+      }),
+    ]);
 
     const converted = await request(app.getHttpServer())
       .get('/dashboard/summary?displayCurrency=USD')
@@ -176,6 +184,76 @@ describe('Dashboard (e2e)', () => {
     const convertedBody = converted.body as DashboardSummaryDto;
     expect(convertedBody.activeEmployeeCount).toBe(2);
     expect(convertedBody.totalPayroll).toBe(110000);
+
+    const byCountry = await request(app.getHttpServer())
+      .get('/dashboard/by-country?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(byCountry.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          country: 'India',
+          headcount: 1,
+          payroll: 10000,
+        }),
+        expect.objectContaining({
+          country: 'US',
+          headcount: 1,
+          payroll: 100000,
+        }),
+      ]),
+    );
+
+    const distribution = await request(app.getHttpServer())
+      .get('/dashboard/distribution?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const buckets = distribution.body as Array<{
+      range: string;
+      count: number;
+    }>;
+    expect(buckets.reduce((sum, row) => sum + row.count, 0)).toBe(2);
+  });
+
+  it('reconcile restores snapshot state from source rows', async () => {
+    const employeeId = await createEmployee({
+      employeeId: 'E050',
+      name: 'Reconcile',
+      email: 'reconcile@example.com',
+      country: 'US',
+    });
+    await commitSalary(employeeId, {
+      baseSalary: 100_000,
+      currency: 'USD',
+      effectiveDate: '2026-04-01',
+    });
+
+    sharedDashboardSnapshots.clear();
+
+    const empty = await request(app.getHttpServer())
+      .get('/dashboard/summary?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect((empty.body as DashboardSummaryDto).activeEmployeeCount).toBe(0);
+
+    const reconcile = await request(app.getHttpServer())
+      .post('/settings/dashboard/reconcile')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(reconcile.body).toEqual(
+      expect.objectContaining({ countries: 1, trends: 1 }),
+    );
+
+    const summary = await request(app.getHttpServer())
+      .get('/dashboard/summary?displayCurrency=USD')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect((summary.body as DashboardSummaryDto).activeEmployeeCount).toBe(1);
+    expect((summary.body as DashboardSummaryDto).totalPayroll).toBe(100000);
   });
 
   it('trends respects from/to and recent-revisions ignores drafts', async () => {

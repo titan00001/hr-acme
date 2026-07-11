@@ -8,6 +8,7 @@ import { EmployeeStatus } from '../../../common/enums/employee-status.enum';
 import { EmploymentType } from '../../../common/enums/employment-type.enum';
 import { SettingsService } from '../../settings/application/settings.service';
 import { DEFAULT_SETTINGS } from '../../settings/domain/default-settings';
+import { DashboardSnapshotService } from '../../dashboard/application/dashboard-snapshot.service';
 import type { Employee } from '../domain/employee.model';
 import {
   EMPLOYEE_REPOSITORY,
@@ -31,6 +32,8 @@ describe('EmployeeService', () => {
   let saveMock: jest.MockedFunction<EmployeeRepositoryPort['save']>;
   let updateMock: jest.MockedFunction<EmployeeRepositoryPort['update']>;
   let getCountriesMock: jest.MockedFunction<SettingsService['getCountries']>;
+  let onEmployeeCreatedMock: jest.Mock;
+  let onEmployeeRelievedMock: jest.Mock;
 
   const sampleEmployee: Employee = {
     id: 'emp-1',
@@ -69,6 +72,8 @@ describe('EmployeeService', () => {
     getCountriesMock = jest.fn() as jest.MockedFunction<
       SettingsService['getCountries']
     >;
+    onEmployeeCreatedMock = jest.fn().mockResolvedValue(undefined);
+    onEmployeeRelievedMock = jest.fn().mockResolvedValue(undefined);
 
     getCountriesMock.mockResolvedValue(DEFAULT_SETTINGS.supportedCountries);
     findByEmployeeIdMock.mockResolvedValue(null);
@@ -95,6 +100,13 @@ describe('EmployeeService', () => {
           provide: SettingsService,
           useValue: { getCountries: getCountriesMock },
         },
+        {
+          provide: DashboardSnapshotService,
+          useValue: {
+            onEmployeeCreated: onEmployeeCreatedMock,
+            onEmployeeRelieved: onEmployeeRelievedMock,
+          },
+        },
       ],
     }).compile();
 
@@ -115,6 +127,7 @@ describe('EmployeeService', () => {
     expect(created.currentSalaryId).toBeNull();
     expect(created.currentSalary).toBeNull();
     expect(saveMock).toHaveBeenCalled();
+    expect(onEmployeeCreatedMock).toHaveBeenCalledWith('India');
   });
 
   it('rejects unsupported country', async () => {
@@ -147,11 +160,19 @@ describe('EmployeeService', () => {
 
   it('relieves an active employee', async () => {
     findByIdMock.mockResolvedValue(sampleEmployee);
-    findListItemByIdMock.mockResolvedValue({
-      ...sampleEmployee,
-      status: EmployeeStatus.Left,
-      currentSalary: null,
-    });
+    findListItemByIdMock
+      .mockResolvedValueOnce({
+        ...sampleEmployee,
+        currentSalary: {
+          totalCompensation: '100.00',
+          currency: 'INR',
+        },
+      })
+      .mockResolvedValueOnce({
+        ...sampleEmployee,
+        status: EmployeeStatus.Left,
+        currentSalary: null,
+      });
 
     const relieved = await service.relieve('emp-1');
 
@@ -160,6 +181,11 @@ describe('EmployeeService', () => {
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ status: EmployeeStatus.Left }),
     );
+    expect(onEmployeeRelievedMock).toHaveBeenCalledWith({
+      country: 'India',
+      currency: 'INR',
+      totalCompensation: '100.00',
+    });
   });
 
   it('throws when employee is missing', async () => {

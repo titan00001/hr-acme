@@ -4,6 +4,7 @@ import type { Employee } from '../../src/modules/employees/domain/employee.model
 import type { SalaryRecord } from '../../src/modules/salary/domain/salary-record.model';
 import type {
   ActiveCurrentSalaryRow,
+  CountryHeadcountRow,
   DashboardQueryPort,
   RecentRevisionResult,
   TrendSalaryRow,
@@ -38,6 +39,22 @@ export class InMemoryDashboardQueryAdapter implements DashboardQueryPort {
     }
 
     return Promise.resolve(rows);
+  }
+
+  findActiveHeadcountByCountry(): Promise<CountryHeadcountRow[]> {
+    const counts = new Map<string, number>();
+    for (const employee of this.getEmployees()) {
+      if (employee.status !== EmployeeStatus.Active) {
+        continue;
+      }
+      counts.set(employee.country, (counts.get(employee.country) ?? 0) + 1);
+    }
+    return Promise.resolve(
+      [...counts.entries()].map(([country, headcount]) => ({
+        country,
+        headcount,
+      })),
+    );
   }
 
   findActiveCommittedInRange(

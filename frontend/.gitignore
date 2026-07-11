@@ -16,6 +16,10 @@ build/
 
 # Tests
 coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
 
 # Logs
 logs/

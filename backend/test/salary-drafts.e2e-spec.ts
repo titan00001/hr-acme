@@ -108,6 +108,11 @@ describe('Salary Drafts (e2e)', () => {
 
     const body = response.body as SalaryDraftResponseDto;
     expect(body.employeeId).toBe(employeeId);
+    expect(body.employee).toEqual({
+      employeeId: 'E001',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    });
     expect(body.baseSalary).toBe('1200000.00');
     expect(body.stockPriceAtEntry).toBe('150.00');
     expect(body.stockValueInStockCurrency).toBe('15000.00');
@@ -125,7 +130,13 @@ describe('Salary Drafts (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect((list.body as SalaryDraftListResponseDto).total).toBe(1);
+    const listBody = list.body as SalaryDraftListResponseDto;
+    expect(listBody.total).toBe(1);
+    expect(listBody.data[0]?.employee).toEqual({
+      employeeId: 'E001',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    });
   });
 
   it('upserts one draft per employee', async () => {

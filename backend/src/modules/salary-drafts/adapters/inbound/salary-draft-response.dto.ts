@@ -2,12 +2,31 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentCycle } from '../../../../common/enums/payment-cycle.enum';
 import { SalaryComponentsDto } from './upsert-salary-draft.dto';
 
+export class DraftEmployeeSummaryDto {
+  @ApiProperty({ example: 'E001', description: 'Business employee code' })
+  employeeId!: string;
+
+  @ApiProperty({ example: 'Ada Lovelace' })
+  name!: string;
+
+  @ApiProperty({ example: 'ada@example.com' })
+  email!: string;
+}
+
 export class SalaryDraftResponseDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Employee UUID (use for /employees/:id links)',
+  })
   employeeId!: string;
+
+  @ApiProperty({
+    type: DraftEmployeeSummaryDto,
+    description: 'Employee identity for display (business id, name, email)',
+  })
+  employee!: DraftEmployeeSummaryDto;
 
   @ApiPropertyOptional({ nullable: true })
   templateId!: string | null;

@@ -1,6 +1,12 @@
 import { PaymentCycle } from '../../../common/enums/payment-cycle.enum';
 import type { SalaryComponents } from '../../salary/domain/salary-components';
 
+export interface DraftEmployeeSummary {
+  employeeId: string;
+  name: string;
+  email: string;
+}
+
 export interface SalaryDraft {
   id: string;
   employeeId: string;
@@ -19,6 +25,10 @@ export interface SalaryDraft {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface SalaryDraftListItem extends SalaryDraft {
+  employee: DraftEmployeeSummary;
 }
 
 export interface StockSnapshot {

@@ -10,8 +10,8 @@ import { EmployeeStatus } from '../../../common/enums/employee-status.enum';
 import { PaymentCycle } from '../../../common/enums/payment-cycle.enum';
 import { EmployeeService } from '../../employees/application/employee.service';
 import { SalaryDraftService } from '../../salary-drafts/application/salary-draft.service';
-import { toSalaryDraftResponseDto } from '../../salary-drafts/application/salary-draft.mapper';
 import { UpsertSalaryDraftDto } from '../../salary-drafts/adapters/inbound/upsert-salary-draft.dto';
+import { SalaryDraftResponseDto } from '../../salary-drafts/adapters/inbound/salary-draft-response.dto';
 import { SalaryTemplateService } from '../../salary-templates/application/salary-template.service';
 import type { SalaryTemplate } from '../../salary-templates/domain/salary-template.model';
 import { MigrateFromTemplateDto } from '../adapters/inbound/migrate-from-template.dto';
@@ -65,7 +65,7 @@ export class SalaryService {
   ): Promise<MigrateFromTemplateResponseDto> {
     const template = await this.salaryTemplateService.findOne(templateId);
     const preserve = new Set(dto.preserveFields);
-    const drafts = [];
+    const drafts: SalaryDraftResponseDto[] = [];
 
     for (const employeeId of dto.employeeIds) {
       const employee = await this.employeeService.findOne(employeeId);
@@ -91,7 +91,7 @@ export class SalaryService {
         upsertDto,
         createdBy,
       );
-      drafts.push(toSalaryDraftResponseDto(draft));
+      drafts.push(draft);
     }
 
     return {

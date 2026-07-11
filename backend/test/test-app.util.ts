@@ -75,6 +75,20 @@ sharedEmployeeRepository.setSalaryLookup((salaryId) => {
   };
 });
 
+sharedSalaryDraftRepository.setEmployeeLookup((employeeUuid) => {
+  const employee = sharedEmployeeRepository
+    .all()
+    .find((row) => row.id === employeeUuid);
+  if (!employee) {
+    return null;
+  }
+  return {
+    employeeId: employee.employeeId,
+    name: employee.name,
+    email: employee.email,
+  };
+});
+
 export const sharedDashboardQuery = new InMemoryDashboardQueryAdapter(
   () => sharedEmployeeRepository.all(),
   () => sharedSalaryRecordRepository.all(),

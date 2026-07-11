@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { SalaryDraft } from '../../src/modules/salary-drafts/domain/salary-draft.model';
+import type {
+  DraftEmployeeSummary,
+  SalaryDraft,
+  SalaryDraftListItem,
+} from '../../src/modules/salary-drafts/domain/salary-draft.model';
 import type {
   SalaryDraftListQuery,
   SalaryDraftListResult,
@@ -9,10 +13,26 @@ import type {
 @Injectable()
 export class InMemorySalaryDraftRepository implements SalaryDraftRepositoryPort {
   private drafts: SalaryDraft[] = [];
+  private employeeLookup: (employeeId: string) => DraftEmployeeSummary | null =
+    () => null;
+
+  setEmployeeLookup(
+    lookup: (employeeId: string) => DraftEmployeeSummary | null,
+  ): void {
+    this.employeeLookup = lookup;
+  }
 
   findById(id: string): Promise<SalaryDraft | null> {
     const draft = this.drafts.find((row) => row.id === id);
     return Promise.resolve(draft ? this.clone(draft) : null);
+  }
+
+  findListItemById(id: string): Promise<SalaryDraftListItem | null> {
+    const draft = this.drafts.find((row) => row.id === id);
+    if (!draft) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(this.toListItem(draft));
   }
 
   findByEmployeeId(employeeId: string): Promise<SalaryDraft | null> {
@@ -28,7 +48,7 @@ export class InMemorySalaryDraftRepository implements SalaryDraftRepositoryPort 
     const start = (query.page - 1) * query.limit;
     const data = rows
       .slice(start, start + query.limit)
-      .map((row) => this.clone(row));
+      .map((row) => this.toListItem(row));
     return Promise.resolve({ data, total });
   }
 
@@ -58,6 +78,18 @@ export class InMemorySalaryDraftRepository implements SalaryDraftRepositoryPort 
 
   count(): number {
     return this.drafts.length;
+  }
+
+  private toListItem(draft: SalaryDraft): SalaryDraftListItem {
+    const employee = this.employeeLookup(draft.employeeId) ?? {
+      employeeId: '',
+      name: '',
+      email: '',
+    };
+    return {
+      ...this.clone(draft),
+      employee,
+    };
   }
 
   private clone(draft: SalaryDraft): SalaryDraft {

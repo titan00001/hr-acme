@@ -90,6 +90,7 @@ describe('SalaryDraftService', () => {
           provide: SALARY_DRAFT_REPOSITORY,
           useValue: {
             findById: findDraftByIdMock,
+            findListItemById: jest.fn(),
             findByEmployeeId: findByEmployeeIdMock,
             findMany: jest.fn(),
             save: saveDraftMock,
@@ -158,6 +159,11 @@ describe('SalaryDraftService', () => {
     expect(updateDraftMock).not.toHaveBeenCalled();
     expect(draft.employeeId).toBe('emp-1');
     expect(draft.baseSalary).toBe('1200000.00');
+    expect(draft.employee).toEqual({
+      employeeId: 'E001',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    });
   });
 
   it('upserts existing draft for the same employee', async () => {
@@ -178,6 +184,7 @@ describe('SalaryDraftService', () => {
     expect(saveDraftMock).not.toHaveBeenCalled();
     expect(draft.baseSalary).toBe('1300000.00');
     expect(draft.id).toBe('draft-1');
+    expect(draft.employee.employeeId).toBe('E001');
   });
 
   it('commits draft into a salary record and clears draft', async () => {

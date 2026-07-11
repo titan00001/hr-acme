@@ -25,7 +25,6 @@ import { PaginationQueryDto } from '../../../../common/pagination/pagination-que
 import { SWAGGER_BEARER_AUTH } from '../../../../common/swagger/setup-swagger';
 import { SalaryRecordResponseDto } from '../../../salary/adapters/inbound/salary-record-response.dto';
 import { SalaryDraftService } from '../../application/salary-draft.service';
-import { toSalaryDraftResponseDto } from '../../application/salary-draft.mapper';
 import { SalaryDraftListResponseDto } from './salary-draft-list-response.dto';
 import { SalaryDraftResponseDto } from './salary-draft-response.dto';
 import { UpsertSalaryDraftDto } from './upsert-salary-draft.dto';
@@ -42,17 +41,12 @@ export class SalaryDraftsController {
   @ApiOperation({ summary: 'Create or update salary draft for an employee' })
   @ApiCreatedResponse({ type: SalaryDraftResponseDto })
   @ApiOkResponse({ type: SalaryDraftResponseDto })
-  async upsert(
+  upsert(
     @Param('employeeId', ParseUUIDPipe) employeeId: string,
     @Body() dto: UpsertSalaryDraftDto,
     @Req() req: AuthenticatedRequest,
   ): Promise<SalaryDraftResponseDto> {
-    const draft = await this.salaryDraftService.upsert(
-      employeeId,
-      dto,
-      req.user.username,
-    );
-    return toSalaryDraftResponseDto(draft);
+    return this.salaryDraftService.upsert(employeeId, dto, req.user.username);
   }
 
   @Get('salary-drafts')
@@ -67,11 +61,10 @@ export class SalaryDraftsController {
   @Get('salary-drafts/:id')
   @ApiOperation({ summary: 'Get salary draft detail' })
   @ApiOkResponse({ type: SalaryDraftResponseDto })
-  async findOne(
+  findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SalaryDraftResponseDto> {
-    const draft = await this.salaryDraftService.findOne(id);
-    return toSalaryDraftResponseDto(draft);
+    return this.salaryDraftService.findOneResponse(id);
   }
 
   @Post('salary-drafts/:id/commit')

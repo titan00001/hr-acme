@@ -23,13 +23,18 @@ import {
 } from '../../salary/ports/outbound/salary-record.repository.port';
 import { UpsertSalaryDraftDto } from '../adapters/inbound/upsert-salary-draft.dto';
 import { SalaryDraftListResponseDto } from '../adapters/inbound/salary-draft-list-response.dto';
+import { SalaryDraftResponseDto } from '../adapters/inbound/salary-draft-response.dto';
 import type { SalaryDraft } from '../domain/salary-draft.model';
 import {
   SALARY_DRAFT_REPOSITORY,
   type SalaryDraftRepositoryPort,
 } from '../ports/outbound/salary-draft.repository.port';
 import { createSalaryRecordFromDraft } from './salary-record.factory';
-import { toSalaryDraftResponseDto } from './salary-draft.mapper';
+import {
+  toDraftEmployeeSummary,
+  toSalaryDraftListResponseDto,
+  toSalaryDraftResponseDto,
+} from './salary-draft.mapper';
 import { toSalaryRecordResponseDto } from '../../salary/application/salary-record.mapper';
 import { StockSnapshotService } from './stock-snapshot.service';
 
@@ -62,7 +67,7 @@ export class SalaryDraftService {
     const meta = getPaginationMeta(result.total, page, limit);
 
     return {
-      data: result.data.map(toSalaryDraftResponseDto),
+      data: result.data.map(toSalaryDraftListResponseDto),
       ...meta,
     };
   }
@@ -75,11 +80,19 @@ export class SalaryDraftService {
     return draft;
   }
 
+  async findOneResponse(id: string): Promise<SalaryDraftResponseDto> {
+    const item = await this.draftRepository.findListItemById(id);
+    if (!item) {
+      throw new NotFoundException(`Salary draft ${id} not found`);
+    }
+    return toSalaryDraftListResponseDto(item);
+  }
+
   async upsert(
     employeeId: string,
     dto: UpsertSalaryDraftDto,
     createdBy: string,
-  ): Promise<SalaryDraft> {
+  ): Promise<SalaryDraftResponseDto> {
     const employee = await this.employeeService.findOne(employeeId);
     if (employee.status !== EmployeeStatus.Active) {
       throw new BadRequestException(
@@ -101,6 +114,7 @@ export class SalaryDraftService {
 
     const existing = await this.draftRepository.findByEmployeeId(employeeId);
     const now = new Date();
+    const employeeSummary = toDraftEmployeeSummary(employee);
 
     if (existing) {
       const updated: SalaryDraft = {
@@ -116,7 +130,8 @@ export class SalaryDraftService {
         createdBy,
         updatedAt: now,
       };
-      return this.draftRepository.update(updated);
+      const saved = await this.draftRepository.update(updated);
+      return toSalaryDraftResponseDto(saved, employeeSummary);
     }
 
     const draft: SalaryDraft = {
@@ -135,7 +150,8 @@ export class SalaryDraftService {
       updatedAt: now,
     };
 
-    return this.draftRepository.save(draft);
+    const saved = await this.draftRepository.save(draft);
+    return toSalaryDraftResponseDto(saved, employeeSummary);
   }
 
   async commit(id: string, createdBy: string) {

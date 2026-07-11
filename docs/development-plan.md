@@ -12,7 +12,7 @@ Delivery is **module-by-module** — one focused milestone per step. Tests ship 
 Phase 0 — Scaffold          M0.1 → M0.3
 Phase 1 — Backend common    M1.1 → M1.3
 Phase 2 — Backend modules   M2.1 → M2.8
-Phase 3 — Frontend modules  M3.1 → M3.10
+Phase 3 — Frontend modules  M3.1 → M3.11
 Phase 4 — Ship              M4.1 → M4.3
 ```
 
@@ -133,14 +133,21 @@ Phase 4 — Ship              M4.1 → M4.3
 ---
 
 ### M2.4 — Salary templates module
-**Goal:** Versioned salary blueprints.
+**Goal:** Full HR management of versioned salary blueprints (create, update, delete, version).
 
 - `SalaryTemplate` entity + migration
-- `GET/POST /salary-templates`, `GET /salary-templates/:id`, `POST /salary-templates/:id/versions`
-- `isAssigned` immutability guard
-- **Integration tests:** create v1, create v2, reject edit on assigned template
+- `GET /salary-templates` — list (filter country/currency, paginate)
+- `POST /salary-templates` — create v1
+- `GET /salary-templates/:id` — detail
+- `PATCH /salary-templates/:id` — update **only if** `isAssigned = false`
+- `DELETE /salary-templates/:id` — delete **only if** `isAssigned = false`
+- `POST /salary-templates/:id/versions` — create next version (always allowed)
+- Validate country/currency against Settings
+- `isAssigned` immutability guard on update/delete
+- **Unit tests:** immutability guard, version increment, delete rejected when assigned
+- **Integration tests:** create v1, update unused, reject update when assigned, create v2, delete unused, reject delete when assigned, list filters
 
-**Done when:** Template scenarios pass (see Test Plan — Salary Templates).
+**Done when:** Template management scenarios pass (see Test Plan — Salary Templates).
 
 ---
 
@@ -242,6 +249,7 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | M3.8 Drafts page | M2.5 Drafts | `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
 | M3.9 Dashboard | M2.7 Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` |
 | M3.10 Settings | M2.1 Settings, M2.2 Currency rates, M2.8 Demo | `GET/PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `GET/POST /settings/demo/*` |
+| M3.11 Salary templates page | M2.4 Templates | `GET/POST/PATCH/DELETE /salary-templates`, `GET /salary-templates/:id`, `POST /salary-templates/:id/versions` |
 
 ---
 
@@ -287,7 +295,7 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | **Backend deps** | M1.2 Auth (JWT already stored from M3.2) |
 | **Required APIs** | None new — shell is presentation-only |
 
-- `AuthLayout` — `GlobalHeader`, `Sidebar` (Employees, Left, Dashboard, Drafts, Settings)
+- `AuthLayout` — `GlobalHeader`, `Sidebar` (Employees, Left, Dashboard, Drafts, Templates, Settings)
 - **Component test:** sidebar renders nav items
 
 **Done when:** Authenticated shell visible after login.
@@ -407,12 +415,31 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 
 ---
 
+### M3.11 — Salary templates management page
+**Goal:** HR can create, edit, delete, and version salary templates.
+
+| | |
+|--|--|
+| **Backend deps** | M2.4 `modules/salary-templates` |
+| **Required APIs** | `GET /salary-templates`, `POST /salary-templates`, `GET /salary-templates/:id`, `PATCH /salary-templates/:id`, `DELETE /salary-templates/:id`, `POST /salary-templates/:id/versions` |
+
+- Sidebar link **Templates** → `TemplatesPage` (list) + `TemplateDetailPage` / create-edit dialogs
+- `templatesApi` — full CRUD + create version
+- Disable Edit/Delete in UI when `isAssigned = true`; show **Create version** instead
+- **Component tests:** create form validation, edit disabled when assigned, delete confirmation, new version flow
+- **Integration / manual:** create → update → assign via draft commit → edit rejected → create version → delete unused version
+
+**Done when:** HR can fully manage templates against live API per business rules.
+
+---
+
 ## Phase 4 — Ship
 
 ### M4.1 — E2E smoke tests
 **Goal:** Critical paths verified end-to-end.
 
 - Playwright (or Cypress): login → onboard → assign draft → commit → dashboard
+- Login → Templates → create template → update → delete unused
 - Login → relieve → verify left page
 - Settings → seed → directory shows 10k
 - **Maps to:** full Test Plan smoke coverage
@@ -567,15 +594,35 @@ Testing runs **alongside each milestone** — not deferred to the end.
 
 ### Salary Templates
 
+**Scenario: HR creates a salary template**
+- **Given** HR is authenticated and `India` / `INR` are supported in Settings
+- **When** they create a template with name, country, currency, and components
+- **Then** a `SalaryTemplate` v1 exists with `isAssigned = false` and appears in the templates list
+
+**Scenario: HR updates an unused template**
+- **Given** a template version exists with `isAssigned = false`
+- **When** HR updates components (e.g. higher `basePay`) via `PATCH /salary-templates/:id`
+- **Then** the same version is updated and list/detail reflect the new values
+
+**Scenario: HR deletes an unused template**
+- **Given** a template version exists with `isAssigned = false` and no committed usage
+- **When** HR deletes that template via `DELETE /salary-templates/:id`
+- **Then** the version is removed and no longer appears in the list
+
 **Scenario: HR creates a template and assigns via draft**
-- **Given** no template exists for India
-- **When** HR creates a `SalaryTemplate` v1 for India/INR and uses it to pre-fill a salary draft
-- **Then** the form is pre-filled with template component values and HR can edit before saving the draft
+- **Given** a template exists for India
+- **When** HR uses it to pre-fill a salary draft and later commits
+- **Then** the form was pre-filled with template values, and after commit that template version has `isAssigned = true`
 
 **Scenario: Template becomes immutable after use**
 - **Given** a template version has been used as the basis for a committed `SalaryRecord`
-- **When** HR attempts to modify that template version
-- **Then** the API rejects the change and HR must create a new version instead
+- **When** HR attempts to `PATCH` or `DELETE` that template version
+- **Then** the API rejects the change (`409`/`400`) and HR must create a new version instead
+
+**Scenario: HR creates a new template version**
+- **Given** template family `India Standard` has v1 (possibly assigned)
+- **When** HR calls `POST /salary-templates/:id/versions` with updated components
+- **Then** v2 is created with the same family name, `isAssigned = false`, and v1 remains unchanged
 
 **Scenario: Template migration with preserveFields**
 - **Given** employees are on template v1 and template v2 exists with a higher `basePay`
@@ -705,6 +752,7 @@ Testing runs **alongside each milestone** — not deferred to the end.
 - [ ] `yarn test` passes in `frontend/` after each M3.x milestone
 - [ ] Given/When/Then scenarios covered by automated tests
 - [ ] Full draft → commit → dashboard workflow works
+- [ ] Template CRUD + new version + immutability when assigned works
 - [ ] 10k seed works
 - [ ] Deployed + video demo
 - [ ] Incremental commit history (one or more commits per milestone)

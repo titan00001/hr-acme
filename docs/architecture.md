@@ -85,7 +85,7 @@ Employee ──< SalaryRecord >── SalaryTemplate
 | currentSalaryId | UUID \| null | FK → SalaryRecord (latest active) |
 
 ### SalaryTemplate
-Versioned blueprint. Once used as a basis for any `SalaryRecord`, `isAssigned = true` and the version becomes immutable — create a new version for structural changes.
+Versioned blueprint managed by HR (create, update unused, delete unused, create new version). Once used as a basis for any committed `SalaryRecord`, `isAssigned = true` and that version becomes immutable — create a new version for structural changes.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -209,7 +209,7 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 |--------|-----------|
 | Auth | `POST /auth/login` |
 | Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve`, `GET /employees/left` |
-| Salary Templates | `GET/POST /salary-templates`, `POST /salary-templates/:id/versions`, `GET /salary-templates/:id`, `POST /salary-templates/:id/migrate` |
+| Salary Templates | `GET/POST /salary-templates`, `GET/PATCH/DELETE /salary-templates/:id`, `POST /salary-templates/:id/versions`, `POST /salary-templates/:id/migrate` |
 | Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
 | Salary | `POST /employees/:id/salary` (assign → draft), `GET /employees/:id/salary/history` |
 | Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
@@ -293,6 +293,8 @@ frontend/
 | `/employees/:id/salary/edit` | EditSalaryPage → saves draft | Protected |
 | `/drafts` | DraftsPage — commit or rollback pending changes | Protected |
 | `/settings` | SettingsPage (FX table + Sync, stock, demo) | Protected |
+| `/templates` | TemplatesPage (list / create / edit / delete / new version) | Protected |
+| `/templates/:id` | TemplateDetailPage (versions, migrate) | Protected |
 
 ---
 

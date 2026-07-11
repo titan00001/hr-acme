@@ -51,7 +51,7 @@ Fields: `employeeId`, `name`, `email`, `country`, `employmentType` (Permanent / 
 Directory with search, filter, sort, pagination. View employee profile with salary history.
 
 ### Compensation Management
-- **Salary templates (versioned)** — reusable blueprints; immutable once used. Structural changes → new version.
+- **Salary templates (versioned)** — HR manages blueprints via Templates UI/API: **create**, **update** (unused only), **delete** (unused only), **create new version**. A version becomes **immutable** once used in a committed `SalaryRecord` (`isAssigned = true`). Structural changes after use → new version.
 - **Template migration** — from template detail page; bulk select employees; **`preserveFields`** option keeps existing employee salary values, applies template base for non-preserved fields.
 - **Salary draft workflow** — assign or edit salary saves to `SalaryDraft` (separate table, one per employee). HR reviews on **Drafts** page → **commit** (creates `SalaryRecord`, updates `currentSalaryId`) or **rollback** (discards draft). Multiple edits allowed before commit.
 - **SalaryRecord** — committed, append-only history. `totalCompensation` stored at write in employee's currency.
@@ -108,7 +108,7 @@ Deliberately deferred to demonstrate scope discipline while acknowledging real-w
 
 | Enhancement | Why deferred |
 |-------------|--------------|
-| **Template version management** | Richer version lifecycle UI (draft, publish, deprecate) beyond MVP create-and-assign |
+| **Template version management** | Richer lifecycle UI (draft, publish, deprecate) beyond MVP create / update unused / delete unused / new version |
 | **Bulk migration to newer versions** | Enhanced bulk wizard with filters, preview, and rollback |
 | **Dynamic salary component configuration** | HR-defined component types; MVP uses fixed component set per template |
 | **Automatic migration with validation** | Rules-based migration (e.g. by country/role) needs safeguards and audit |

@@ -85,7 +85,7 @@ When backend completes a milestone that frontend depends on:
 | M2.1 Settings | M3.10 Settings (partial) |
 | M2.2 Currency | M3.10 FX sync |
 | M2.3 Employees | M3.4, M3.5, M3.6 |
-| M2.4 Templates | M3.7 TemplatePicker |
+| M2.4 Templates | M3.7 TemplatePicker, **M3.11 Templates management** |
 | M2.5 Drafts | M3.7, M3.8 |
 | M2.6 History | M3.5 history timeline |
 | M2.7 Dashboard | M3.9 Dashboard |

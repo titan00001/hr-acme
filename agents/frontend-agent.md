@@ -61,6 +61,7 @@ Start by asking which milestone to implement, or begin M0.3 if nothing exists in
 | M3.8 | Drafts page |
 | M3.9 | Dashboard |
 | M3.10 | Settings (FX sync, demo) |
+| M3.11 | Salary templates management |
 
 ---
 

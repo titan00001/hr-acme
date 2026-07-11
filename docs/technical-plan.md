@@ -251,28 +251,34 @@ Index: `(name)`, `(country)`, `(currency)`.
 | DTO | Fields |
 |-----|--------|
 | `CreateTemplateDto` | `name`, `country`, `currency`, `components` |
-| `CreateTemplateVersionDto` | Same shape as Create — applied as a new version of the template family |
-| `TemplateResponseDto` | All fields + computed `latestVersion` |
+| `UpdateTemplateDto` | Partial of Create — applied only when `isAssigned = false` |
+| `CreateTemplateVersionDto` | Same shape as Create (minus `name` optional — inherits family name) — applied as a new version of the template family |
+| `TemplateResponseDto` | All fields + computed `latestVersion` for family |
 | `TemplateListResponseDto` | `PaginatedResponseDto<TemplateResponseDto>` |
+| `TemplateQueryDto` | extends `PaginationQueryDto` + `search?`, `country?`, `currency?`, `isAssigned?` |
 
 **Service — `SalaryTemplateService`:**
 
 | Method | Logic |
 |--------|-------|
-| `findAll(country?, currency?)` | Filter; return all versions grouped by name |
-| `findOne(id)` | Fetch by PK |
+| `findAll(query)` | Filter by country/currency/search/`isAssigned`; paginated |
+| `findOne(id)` | Fetch by PK; throw `NotFoundException` if missing |
 | `findLatest(name)` | Latest version for a template family |
-| `create(dto)` | Insert with `version = 1` |
-| `createVersion(id, dto)` | Fetch existing; insert new record with `version + 1`; same `name` |
-| `markAssigned(id)` | Set `isAssigned = true`; called internally by `SalaryModule` |
+| `create(dto)` | Validate country/currency against Settings; insert with `version = 1`, `isAssigned = false` |
+| `update(id, dto)` | Reject if `isAssigned`; otherwise patch fields |
+| `remove(id)` | Reject if `isAssigned`; otherwise delete row |
+| `createVersion(id, dto)` | Fetch existing; insert new record with same `name`, `version = max + 1`, `isAssigned = false` |
+| `markAssigned(id)` | Set `isAssigned = true`; called internally by `SalaryModule` on draft commit |
 
 **Routes:**
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/salary-templates` | List all (filterable by country/currency) |
+| `GET` | `/salary-templates` | List (filterable, paginated) |
 | `POST` | `/salary-templates` | Create first version |
 | `GET` | `/salary-templates/:id` | Fetch one |
+| `PATCH` | `/salary-templates/:id` | Update unused version only |
+| `DELETE` | `/salary-templates/:id` | Delete unused version only |
 | `POST` | `/salary-templates/:id/versions` | New version of an existing template |
 
 ---
@@ -547,6 +553,9 @@ export default defineConfig({
       <Route path="/employees/:id" element={<EmployeeDetailPage />} />
       <Route path="/employees/:id/salary/create" element={<AssignSalaryPage />} />
       <Route path="/employees/:id/salary/edit" element={<EditSalaryPage />} />
+      <Route path="/drafts" element={<DraftsPage />} />
+      <Route path="/templates" element={<TemplatesPage />} />
+      <Route path="/templates/:id" element={<TemplateDetailPage />} />
       <Route path="/settings" element={<SettingsPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/dashboard" />} />
@@ -653,7 +662,7 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 - **Flow:** submit → success → `navigate('/dashboard')`
 
 #### `AuthLayout`
-- **Sidebar:** Employees, Left Employees, Dashboard, Drafts, Settings
+- **Sidebar:** Employees, Left Employees, Dashboard, Drafts, Templates, Settings
 
 #### `/dashboard` — `DashboardPage`
 - **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList` + pagination (`page`/`limit=10` against `GET /dashboard/recent-revisions`, ordered by `createdAt DESC`)
@@ -669,6 +678,16 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 #### `/drafts` — `DraftsPage`
 - **Components:** `DraftsTable` — employee, proposed total, effective date, actions (Commit / Rollback / Edit)
 - **Data:** `salaryDraftsApi`
+
+#### `/templates` — `TemplatesPage`
+- **Components:** `TemplateFilterBar`, `TemplatesTable`, `CreateTemplateDialog`, `EditTemplateDialog`
+- **Actions:** Create; Edit / Delete only when `isAssigned = false`; row opens detail
+- **Data:** `templatesApi` (`GET/POST/PATCH/DELETE /salary-templates`)
+
+#### `/templates/:id` — `TemplateDetailPage`
+- **Components:** version list, component summary, **Create version**, **Migrate** (M2.6)
+- **Rules:** Edit/Delete disabled when `isAssigned`; Create version always available
+- **Data:** `GET /salary-templates/:id`, `POST /salary-templates/:id/versions`
 
 #### `/employees/:id` — `EmployeeDetailPage`
 - **Components:** `EmployeeInfoCard`, `CurrentSalaryCard` (stock snapshots visible), `SalaryHistoryTimeline`, `ActionBar`

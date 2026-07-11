@@ -34,6 +34,35 @@ Duplicate `employeeId` or `email` should be rejected.
 
 ---
 
+## Salary Template Management
+
+HR manages salary templates from a dedicated **Templates** area (list, detail, create, edit, delete, new version). Templates are blueprints used to pre-fill salary drafts — they are not employee salary assignments themselves.
+
+### Lifecycle actions
+
+| Action | Allowed when | Rule |
+|--------|--------------|------|
+| **Create** | Always | Creates template family at `version = 1` with `isAssigned = false`. `name` + `version` must be unique. Country must be in Settings supported countries; currency in supported currencies. |
+| **Update** | `isAssigned = false` | HR may edit `name` (only if no other versions share the family — prefer stable family names), `country`, `currency`, and `components` on an unused version. Once `isAssigned = true`, update is **rejected** — HR must create a **new version** instead. |
+| **Create version** | Always | From an existing template id: inserts a new row with same family `name`, `version = max(version) + 1`, new components/country/currency as provided. Prior versions are unchanged. |
+| **Delete** | `isAssigned = false` | Deletes that template **version** only. If the version was used by any `SalaryRecord` or pending `SalaryDraft`, delete is **rejected** (`isAssigned` must already be true in that case). Assigned versions are never deleted in MVP. |
+
+### Immutability after use
+
+| Event | Effect |
+|-------|--------|
+| Draft saved with `templateId` | Does **not** mark template assigned (draft can still change) |
+| Draft **committed** with `templateId` | Sets that template version `isAssigned = true` |
+| HR tries PATCH/DELETE on assigned version | API returns `409 Conflict` (or `400`) with message to create a new version |
+
+### UI expectations
+
+- Templates list: search/filter by country/currency; show name, latest version, assigned status
+- Template detail: view all versions; actions Create version / Edit (if unused) / Delete (if unused)
+- Assign/Edit salary forms continue to use Template picker (read-only selection) from these templates
+
+---
+
 ## Salary Draft Workflow
 
 | Step | Action |
@@ -138,6 +167,7 @@ HR sees both native stock value and converted value on employee detail and histo
 - [ ] Login → authenticated shell with header + sidebar
 - [ ] Employee directory with search/filter/sort over 10k records
 - [ ] Onboard, relieve, view profile with salary history
+- [ ] **Salary templates:** create, update unused, delete unused, create new version; reject edit/delete when assigned
 - [ ] Draft workflow: edit → Drafts page → commit or rollback
 - [ ] Left employees on separate route; excluded from dashboard
 - [ ] Dashboard with `displayCurrency` filter and date-range trends

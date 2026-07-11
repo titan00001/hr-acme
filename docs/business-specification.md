@@ -115,6 +115,24 @@ The chronology constraint (`effectiveDate ≥ latest record`) prevents HR from b
 - Settings shows rate table with **Sync** button; `EXCHANGE_RATE_API_KEY` in backend env.
 - Conversion is for **display only** on dashboard — source records unchanged.
 
+### Dashboard Aggregation Strategy (Performance)
+
+Dashboard analytics are pre-aggregated at **write time** into snapshot tables denominated in the **base currency** (e.g. USD). This avoids per-employee FX loops on every dashboard load and keeps read latency O(1) regardless of employee count.
+
+| Snapshot | Granularity | Updated when |
+|----------|------------|--------------|
+| `dashboard_country_snapshots` | per `(country, currency)` | salary committed, employee relieved/reinstated |
+| `dashboard_trend_snapshots` | per `(effectiveDate, currency)` | salary committed |
+| `dashboard_distribution_snapshots` | per fixed bucket | salary committed, employee relieved/reinstated |
+
+**At query time**, totals in base currency are multiplied by a single FX rate to produce the chosen `displayCurrency`. No per-row conversion occurs at read time.
+
+**FX sync** does not invalidate snapshots — snapshots stay in base currency. Only the single rate applied at query time changes.
+
+### Distribution Buckets (Fixed)
+
+Salary distribution uses **fixed, pre-defined bucket boundaries** (e.g. 0–50k, 50k–100k, 100k–200k, 200k–500k, 500k+) denominated in base currency. Bucket counts are stored in `dashboard_distribution_snapshots` and updated incrementally on salary events. This allows pre-aggregation; dynamic bucket boundaries (derived from min/max at query time) are not used.
+
 ---
 
 ## Left Employees

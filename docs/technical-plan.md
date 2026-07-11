@@ -386,15 +386,76 @@ Index: `(name)`, `(country)`, `(currency)`.
 - `from`, `to`: date range (trends only)
 - `page`, `limit`: pagination (recent-revisions only)
 
+#### Performance Architecture — Pre-aggregated Snapshots
+
+Dashboard data is **pre-aggregated at write time** into three snapshot tables, all denominated in the **base currency** (from `Settings.baseCurrency`). At query time only a single FX rate multiplication is applied — no per-employee FX loops.
+
+**Snapshot entities:**
+
+`DashboardCountrySnapshot` — one row per `(country, baseCurrency)`:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| country | string | PK part |
+| baseCurrency | string | PK part |
+| totalPayroll | decimal(20,4) | sum of all Active employee salaries converted to baseCurrency |
+| headcount | integer | count of Active employees in that country |
+| updatedAt | timestamp | |
+
+`DashboardTrendSnapshot` — one row per `(effectiveDate, baseCurrency)`:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| effectiveDate | date | PK part |
+| baseCurrency | string | PK part |
+| totalPayroll | decimal(20,4) | |
+| updatedAt | timestamp | |
+
+`DashboardDistributionSnapshot` — one row per fixed bucket:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| bucketIndex | integer | PK — 0-based index into fixed boundaries |
+| label | string | e.g. `"0–50k"` |
+| lowerBound | decimal | in base currency |
+| upperBound | decimal \| null | null = open upper (last bucket) |
+| count | integer | Active employees whose base-currency salary falls in this bucket |
+| updatedAt | timestamp | |
+
+**Fixed bucket boundaries (base currency):**
+
+| Index | Range |
+|-------|-------|
+| 0 | 0 – 50,000 |
+| 1 | 50,000 – 100,000 |
+| 2 | 100,000 – 200,000 |
+| 3 | 200,000 – 500,000 |
+| 4 | 500,000+ |
+
+Boundaries are constants in code — not computed from employee data. Counts are incremented/decremented at write time.
+
+**Invalidation triggers (write-side fan-out):**
+
+| Event | Snapshot update |
+|-------|----------------|
+| Draft committed (new salary record) | `DashboardCountrySnapshot` += new amount − old amount; `DashboardTrendSnapshot` += new amount for `effectiveDate`; `DashboardDistributionSnapshot` decrement old bucket, increment new bucket |
+| Employee relieved | `DashboardCountrySnapshot` headcount −1, payroll − last salary; distribution bucket count −1 |
+| Employee reinstated (future) | Reverse of relieve |
+| FX sync | No snapshot change — snapshots stay in base currency; FX rate applied only at query time |
+
+Snapshot updates run **inside the same transaction** as the salary commit or status change.
+
+A **reconcile endpoint** (`POST /settings/dashboard/reconcile`) is available for ops to recompute all snapshots from scratch in case of drift.
+
 **Service — `DashboardService`:**
 
 | Method | Logic |
 |--------|-------|
-| `getSummary(query)` | Active only. If `original`: return breakdown per currency. Else: convert totals using DB rates. |
-| `getByCountry(query)` | Group by country; respect `displayCurrency` |
-| `getDistribution(query)` | Fixed buckets; convert if display currency set |
-| `getTrends(query)` | Filter `effectiveDate` between `from` and `to`; daily/weekly granularity |
-| `getRecentRevisions(page, limit)` | **Committed** SalaryRecords for Active employees only; **sorted `createdAt DESC`** (newest commit first); paginated |
+| `getSummary(query)` | Read from `DashboardCountrySnapshot`; aggregate totals. If `original`: return per-currency sums. Else: multiply each base-currency total by `rate(base → displayCurrency)`. O(1) DB read. |
+| `getByCountry(query)` | Read `DashboardCountrySnapshot`; apply single FX multiply per row. |
+| `getDistribution(query)` | Read `DashboardDistributionSnapshot`; scale bucket boundaries by `rate(base → displayCurrency)` for display labels. Counts unchanged. |
+| `getTrends(query)` | Read `DashboardTrendSnapshot` filtered by `from`/`to`; apply FX multiply. |
+| `getRecentRevisions(page, limit)` | **Committed** SalaryRecords for Active employees only; **sorted `createdAt DESC`** (newest commit first); paginated. Not affected by snapshots. |
 
 **`GET /dashboard/recent-revisions` contract:**
 
@@ -406,6 +467,12 @@ Index: `(name)`, `(country)`, `(currency)`.
 | Row shape | `id`, `employeeId` (UUID), `employeeName`, `employeeCode`, `effectiveDate`, `currency`, `totalCompensation`, `reason`, `createdBy`, `createdAt` |
 
 **Routes:** `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions`
+
+**Additional route:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/settings/dashboard/reconcile` | Recompute all snapshots from source records (ops/recovery) |
 
 ---
 
@@ -487,7 +554,8 @@ Index: `(name)`, `(country)`, `(currency)`.
 | `normalizeAmount(amount, from, to, fxRates)` | `common/currency/currency.utils.ts` | Pure: FX conversion |
 | `getPaginationMeta(total, page, limit)` | `common/pagination/pagination.utils.ts` | Builds meta |
 | `safeOrderBy(field, allowed, alias)` | `common/pagination/pagination.utils.ts` | Whitelist sort columns |
-| `buildBuckets(min, max, count)` | `dashboard/dashboard.utils.ts` | Compute histogram ranges |
+| `DISTRIBUTION_BUCKETS` | `dashboard/dashboard.constants.ts` | Fixed bucket boundary definitions (base currency) |
+| `assignBucket(amount, baseCurrency)` | `dashboard/dashboard.utils.ts` | Map a base-currency amount to its fixed bucket index |
 
 ---
 

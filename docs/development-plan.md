@@ -178,15 +178,32 @@ Phase 4 — Ship              M4.1 → M4.3
 ---
 
 ### M2.7 — Dashboard module
-**Goal:** Analytics for Active employees only.
+**Goal:** Analytics for Active employees only, served from pre-aggregated snapshots for O(1) read performance at any scale.
 
-- `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions`
-- `displayCurrency` filter (`original` \| supported currency)
-- Trends `from` / `to` date range
-- Exclude Left employees and uncommitted drafts
-- **Integration tests:** original vs converted currency, date range, left excluded
+#### Snapshot tables + migrations
+- `dashboard_country_snapshots` — one row per `(country, baseCurrency)`: `totalPayroll`, `headcount`, `updatedAt`
+- `dashboard_trend_snapshots` — one row per `(effectiveDate, baseCurrency)`: `totalPayroll`, `updatedAt`
+- `dashboard_distribution_snapshots` — one row per fixed bucket index: `bucketIndex`, `label`, `lowerBound`, `upperBound` (nullable), `count`, `updatedAt`
+- Fixed bucket boundaries defined as constants in `dashboard/dashboard.constants.ts` (0–50k, 50k–100k, 100k–200k, 200k–500k, 500k+) in base currency
 
-**Done when:** Dashboard scenarios pass (see Test Plan — Dashboard & Reporting).
+#### Write-side fan-out (inside existing transactions)
+- `SalaryDraftService.commit()` — after inserting `SalaryRecord`: update country snapshot (±delta), trend snapshot (effectiveDate row), distribution snapshot (move bucket count)
+- `EmployeeService.relieve()` — decrement headcount + payroll in country snapshot; decrement distribution bucket count
+- Snapshot update logic lives in `DashboardSnapshotService` (injected into `SalaryDraftService` and `EmployeeService`)
+
+#### Read endpoints
+- `GET /dashboard/summary` — read `dashboard_country_snapshots`; aggregate; apply single FX multiply if `displayCurrency ≠ original`
+- `GET /dashboard/by-country` — same source; one FX multiply per row
+- `GET /dashboard/distribution` — read `dashboard_distribution_snapshots`; scale bucket labels by FX rate for display
+- `GET /dashboard/trends` — read `dashboard_trend_snapshots` filtered by `from`/`to`; apply FX multiply
+- `GET /dashboard/recent-revisions` — direct `SalaryRecord` query; sorted `createdAt DESC`; paginated (unaffected by snapshots)
+- `POST /settings/dashboard/reconcile` — truncate snapshots and recompute from all `SalaryRecord` + `Employee` rows (recovery/ops)
+
+#### Tests
+- **Unit:** `DashboardSnapshotService` — upsert delta logic, bucket assignment, relieve decrement
+- **Integration:** commit → snapshots updated; relieve → headcount decremented; reconcile restores correct counts; `displayCurrency` FX multiply at read time; left employees excluded; date range filter on trends
+
+**Done when:** Dashboard scenarios pass (see Test Plan — Dashboard & Reporting); summary endpoint returns in under 100ms with 10k seed.
 
 ---
 
@@ -247,7 +264,7 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | M3.6 Left employees | M2.3 Employees | `GET /employees/left` |
 | M3.7 Salary forms (draft) | M2.4 Templates, M2.5 Drafts, M2.1 Settings (stock/countries) | `GET /salary-templates`, `GET /salary-templates/:id`, `POST /employees/:id/salary/draft`, `GET /settings` |
 | M3.8 Drafts page | M2.5 Drafts | `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
-| M3.9 Dashboard | M2.7 Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` |
+| M3.9 Dashboard | M2.7 Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions`; `POST /settings/dashboard/reconcile` (ops) |
 | M3.10 Settings | M2.1 Settings, M2.2 Currency rates, M2.8 Demo | `GET/PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `GET/POST /settings/demo/*` |
 | M3.11 Salary templates page | M2.4 Templates | `GET/POST/PATCH/DELETE /salary-templates`, `GET /salary-templates/:id`, `POST /salary-templates/:id/versions` |
 
@@ -668,6 +685,26 @@ Testing runs **alongside each milestone** — not deferred to the end.
 - **When** HR views recent revisions on the dashboard
 - **Then** only the committed `SalaryRecord` appears, not the draft
 
+**Scenario: Snapshot updated on salary commit**
+- **Given** an Active employee in India has an existing committed salary of ₹1,000,000
+- **When** HR commits a draft raising their salary to ₹1,200,000
+- **Then** `dashboard_country_snapshots` for India reflects the ₹200,000 delta within the same transaction, and `GET /dashboard/summary` returns updated totals immediately
+
+**Scenario: Snapshot updated on relieve**
+- **Given** an Active employee in Germany has a committed salary
+- **When** HR relieves that employee
+- **Then** `dashboard_country_snapshots` headcount for Germany decrements by 1 and `totalPayroll` decreases by the employee's salary amount
+
+**Scenario: Distribution bucket assigned to correct fixed range**
+- **Given** Settings `baseCurrency` is USD and an employee's base-currency salary is $75,000
+- **When** their draft is committed
+- **Then** the 50k–100k bucket count in `dashboard_distribution_snapshots` increments and `GET /dashboard/distribution` reflects the new count
+
+**Scenario: Reconcile restores correct snapshot state**
+- **Given** snapshots have drifted (e.g. manual DB edit during testing)
+- **When** `POST /settings/dashboard/reconcile` is called
+- **Then** all three snapshot tables are recomputed from source `SalaryRecord` + `Employee` rows and match the expected totals
+
 ---
 
 ### Settings & Demo
@@ -696,6 +733,11 @@ Testing runs **alongside each milestone** — not deferred to the end.
 - **When** HR loads the employee directory with default pagination
 - **Then** the first page returns in under 500ms (local dev target)
 
+**Scenario: Dashboard summary returns fast with converted currency**
+- **Given** 10,000 seeded employees exist across 5 countries and currencies
+- **When** HR requests `GET /dashboard/summary?displayCurrency=INR`
+- **Then** the response returns in under 100ms (snapshot read + single FX multiply; no per-employee DB calls)
+
 ---
 
 ## Trade-offs
@@ -719,7 +761,8 @@ Testing runs **alongside each milestone** — not deferred to the end.
 | Left employees | Separate route, excluded from dashboard | Mixed in directory with filter | Clear separation; notice on Left page |
 | Stock valuation | Snapshots on SalaryRecord at commit | Live Settings price only | HR sees stock price and converted value at time of entry |
 | Settings cache | In-memory singleton cache | Query DB on every request | FX rates and country list are read far more than written; avoids DB roundtrip on every salary validation |
-| Dashboard aggregates | Raw SQL `GROUP BY` / `DATE_TRUNC` | Load rows into service and aggregate in JS | Never loads 10k rows into memory; scales with data |
+| Dashboard aggregates | Pre-aggregated snapshots updated at write time (base currency) | `GROUP BY` on every read / per-employee FX loop | Snapshot read is O(1) regardless of employee count; single FX multiply at query time; avoids thousands of DB round-trips per dashboard load |
+| Dashboard distribution buckets | Fixed boundaries in base currency (5 tiers) | Dynamic buckets derived from min/max at query time | Fixed boundaries allow pre-aggregation and incremental bucket-count updates; dynamic boundaries require a full table scan on every load |
 
 ### Frontend
 

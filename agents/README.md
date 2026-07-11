@@ -7,7 +7,7 @@ Two specialized agents build this project in parallel where possible, gated by *
 | Agent | Runbook | Workspace | Milestones |
 |-------|---------|-----------|------------|
 | **Backend** | [backend-agent.md](./backend-agent.md) | `backend/` | M0.2, M1.1–M1.3, M2.1–M2.8 |
-| **Frontend** | [frontend-agent.md](./frontend-agent.md) | `frontend/` | M0.3, M3.1–M3.10 |
+| **Frontend** | [frontend-agent.md](./frontend-agent.md) | `frontend/` | M0.3, M3.1–M3.10 · Harbor Ink design system |
 
 Shared protocol: [milestone-gate.md](./milestone-gate.md)
 
@@ -70,10 +70,12 @@ FIX: <milestone-id> — <description>
 | Doc | Purpose |
 |-----|---------|
 | `docs/requirements.md` | What to build |
-| `docs/architecture.md` | Stack, domain model, routes |
-| `docs/technical-plan.md` | Per-module implementation detail |
-| `docs/development-plan.md` | Milestones + Given/When/Then tests |
+| `docs/architecture.md` | Stack, domain model, routes, Harbor Ink summary |
+| `docs/technical-plan.md` | Per-module implementation detail + design system |
+| `docs/development-plan.md` | Milestones + Given/When/Then + Harbor Ink brief |
 | `docs/business-specification.md` | Business rules |
+| `frontend/src/presentation/styles/` | Harbor Ink tokens (theme, motion, typed map) |
+| `agents/frontend-agent.md` § Design system | UI consistency rules for the Frontend Agent |
 
 ## Commits
 

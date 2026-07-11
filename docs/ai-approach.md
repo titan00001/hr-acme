@@ -7,7 +7,7 @@ Development is driven by two specialized agents with milestone gates. See [`agen
 | Agent | Runbook | Focus |
 |-------|---------|-------|
 | Backend | [`agents/backend-agent.md`](../agents/backend-agent.md) | NestJS, Postgres, Ports & Adapters, SOLID, GoF patterns |
-| Frontend | [`agents/frontend-agent.md`](../agents/frontend-agent.md) | React, shadcn/ui, presentation + infrastructure layers |
+| Frontend | [`agents/frontend-agent.md`](../agents/frontend-agent.md) | React, shadcn/ui, Harbor Ink theme, presentation + infrastructure layers |
 
 Each milestone requires user `APPROVED: <id>` before the next module — see [`agents/milestone-gate.md`](../agents/milestone-gate.md).
 
@@ -18,7 +18,7 @@ Each milestone requires user `APPROVED: <id>` before the next module — see [`a
 | Spec & architecture | Draft structure | Finalize scope, entities, NestJS module boundaries |
 | NestJS modules | Scaffold controllers, services, DTOs | Review DI wiring, business rules |
 | TypeORM entities | Generate entity/migration boilerplate | Validate relations and indexes |
-| UI components | shadcn layout, tables, forms | UX flow, auth routing |
+| UI components | shadcn + Harbor Ink tokens (theme.css) | UX flow, auth routing, visual consistency |
 | Seed script | Faker-based data generation | Verify distributions, FK integrity |
 | Tests | Test skeletons | Assert revision immutability, FX normalization |
 

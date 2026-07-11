@@ -6,7 +6,8 @@
 |-------|--------|-----------|
 | **Backend** | NestJS + TypeScript | Enterprise framework; built-in DI; opinionated structure — fewer low-level decisions |
 | **Database** | PostgreSQL + TypeORM | Relational fit; migration support; indexes for 10k-scale queries |
-| **Frontend** | React + Vite + TypeScript + shadcn/ui | Fast dev, simple SPA — no SSR needed for internal HR tool |
+| **Frontend** | React + Vite + TypeScript + shadcn/ui + Tailwind | Fast dev, simple SPA — no SSR needed for internal HR tool |
+| **Design system** | Harbor Ink (`presentation/styles/`) | Shared tokens for color, type, space, radius, shadow, motion — see development plan § Design system |
 | **Tests** | Jest (NestJS) + Vitest (shared domain) | Fast unit tests on business logic |
 | **API docs** | `@nestjs/swagger` (OpenAPI 3) | Auto-generated spec + Swagger UI; Bearer auth for protected routes |
 | **Deploy** | Static host / Netlify (`frontend/`) + Railway/Render (`backend/` + Postgres) | SPA build; backend API separately |
@@ -257,6 +258,8 @@ Canonical metric list lives in [requirements.md](./requirements.md#dashboard--re
 
 React SPA built with **Vite**. Client-side routing via **React Router**. No SSR.
 
+**Design system:** Harbor Ink — tokens in `src/presentation/styles/` (`theme.css`, `animations.css`, `tokens.ts`). Brand teal `#0d7377`, accent gold `#d4a017`, fonts Fraunces + Sora. Frontend agent must reuse these tokens (no ad-hoc palettes).
+
 ```
 frontend/
 ├── package.json
@@ -264,29 +267,16 @@ frontend/
 ├── index.html
 ├── yarn.lock
 ├── src/
-│   ├── main.tsx               # React root + Redux Provider
-│   ├── App.tsx                # Router outlet
-│   ├── routes/
-│   │   └── index.tsx          # Route definitions + ProtectedRoute guard
-│   ├── layouts/
-│   │   └── AuthLayout.tsx     # GlobalHeader + Sidebar shell
-│   ├── pages/
-│   │   ├── LoginPage.tsx
-│   │   ├── DashboardPage.tsx
-│   │   ├── EmployeesPage.tsx
-│   │   ├── EmployeeDetailPage.tsx
-│   │   ├── AssignSalaryPage.tsx
-│   │   ├── EditSalaryPage.tsx
-│   │   ├── DraftsPage.tsx
-│   │   ├── LeftEmployeesPage.tsx
-│   │   └── SettingsPage.tsx
-│   ├── components/
-│   │   ├── layout/            # GlobalHeader, Sidebar
-│   │   └── ui/                # shadcn
-│   └── lib/
-│       ├── store.ts           # Redux store
-│       ├── api/               # RTK Query APIs + axiosBaseQuery
-│       └── types/             # TypeScript models
+│   ├── app/                   # App entry, providers
+│   ├── infrastructure/        # store, routing, RTK Query APIs
+│   ├── domain/                # types, formatters
+│   ├── presentation/
+│   │   ├── styles/            # Harbor Ink theme + motion tokens
+│   │   ├── components/        # layout + shadcn ui/
+│   │   ├── pages/
+│   │   └── hooks/
+│   ├── main.tsx
+│   └── index.css              # imports Tailwind + theme
 └── ...
 ```
 

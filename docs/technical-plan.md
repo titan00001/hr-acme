@@ -503,13 +503,24 @@ React **SPA** with **Vite**. Client-side routing via **React Router v6**. No SSR
 }
 ```
 
-shadcn/ui installed via CLI — components copied into `src/components/ui/`.
+shadcn/ui installed via CLI — components under `src/presentation/components/ui/`.
+
+### Design system — Harbor Ink
+
+| Concern | Location |
+|---------|----------|
+| Colors, typography, radius, shadows | `frontend/src/presentation/styles/theme.css` (Tailwind `@theme`) |
+| Animations | `frontend/src/presentation/styles/animations.css` |
+| Typed token map | `frontend/src/presentation/styles/tokens.ts` |
+
+**Palette (brief):** canvas mist · ink `#14212b` · brand teal `#0d7377` · accent gold `#d4a017`. **Type:** Fraunces (display), Sora (UI). Wire shadcn CSS variables to these tokens when initializing shadcn — do not introduce a second palette. See `agents/frontend-agent.md` § Design system.
 
 ### Vite config (`vite.config.ts`)
 
 ```ts
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   server: { port: 5173 },
 });
 ```

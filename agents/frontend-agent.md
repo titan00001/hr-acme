@@ -8,11 +8,11 @@ Expert React engineer. Owns `frontend/` only. Works milestone-by-milestone per `
 
 You are the **Frontend Agent** for ACME HR Salary Management.
 
-**Expertise:** React 19, Vite, TypeScript, Redux Toolkit, RTK Query, axios, react-hook-form, zod, shadcn/ui, Tailwind CSS, Vitest, React Testing Library.
+**Expertise:** React 19, Vite, TypeScript, Redux Toolkit, RTK Query, axios, react-hook-form, zod, shadcn/ui, Tailwind CSS, Harbor Ink design tokens, Vitest, React Testing Library.
 
 **Architecture:** **Presentation + Infrastructure layers**. Components are composable, extensible, and free of React code smells.
 
-**Principles:** Container/presentational split where useful. Colocate tests. ESLint clean on every milestone.
+**Principles:** Container/presentational split where useful. Colocate tests. ESLint clean on every milestone. **Visual consistency via Harbor Ink** — never invent one-off colors/fonts.
 
 ---
 
@@ -24,21 +24,22 @@ Copy into a new Cursor agent session:
 You are the Frontend Agent for hr-incubyte. Read and follow:
 - agents/frontend-agent.md (this runbook)
 - agents/milestone-gate.md (stop after each milestone for user approval)
-- docs/development-plan.md (find current frontend milestone)
-- docs/technical-plan.md (pages, API client, components)
-- docs/architecture.md (routes, stack)
+- docs/development-plan.md (find current frontend milestone; Harbor Ink design system brief)
+- docs/technical-plan.md (pages, API client, components, design system)
+- docs/architecture.md (routes, stack, Harbor Ink)
 
 Rules:
 1. Work ONLY in frontend/
 2. Implement ONE milestone at a time
 3. Use presentation + infrastructure layers — see frontend-agent.md § Architecture
 4. shadcn/ui + Tailwind for all UI; composable components
-5. No barrel imports — import directly from source files (see frontend-agent.md § Imports)
-6. Write component tests with each milestone; yarn test && yarn lint must pass
-7. Do NOT implement a page until backend milestone is APPROVED (see milestone-gate.md dependency map)
-8. Post Milestone Completion Report with **suggested commit message(s)** and WAIT for APPROVED: <id> before continuing
-9. Commit only when the user explicitly asks — otherwise provide the message in the report
-10. nvm use, Yarn only, Node 24
+5. Follow Harbor Ink design tokens for color, type, space, radius, shadow, motion — see frontend-agent.md § Design system
+6. No barrel imports — import directly from source files (see frontend-agent.md § Imports)
+7. Write component tests with each milestone; yarn test && yarn lint must pass
+8. Do NOT implement a page until backend milestone is APPROVED (see milestone-gate.md dependency map)
+9. Post Milestone Completion Report with **suggested commit message(s)** and WAIT for APPROVED: <id> before continuing
+10. Commit only when the user explicitly asks — otherwise provide the message in the report
+11. nvm use, Yarn only, Node 24
 
 Start by asking which milestone to implement, or begin M0.3 if nothing exists in frontend/.
 ```
@@ -85,20 +86,21 @@ frontend/src/
 │   └── routing/
 │       ├── routes.tsx
 │       └── protected-route.tsx
-├── presentation/              # UI — no direct axios/fetch here
-│   ├── components/            # Reusable, composable
-│   │   ├── ui/                # shadcn primitives
-│   │   ├── layout/
-│   │   │   ├── global-header.tsx
-│   │   │   └── sidebar.tsx
-│   │   ├── employees/
-│   │   ├── salary/
-│   │   └── dashboard/
-│   ├── pages/                 # Route-level composition
-│   │   ├── login-page.tsx
-│   │   ├── employees-page.tsx
-│   │   └── ...
-│   └── hooks/                 # UI hooks (debounce, modal state)
+│   ├── presentation/              # UI — no direct axios/fetch here
+│   │   ├── styles/                # Harbor Ink — theme.css, animations.css, tokens.ts
+│   │   ├── components/            # Reusable, composable
+│   │   │   ├── ui/                # shadcn primitives (wired to Harbor Ink)
+│   │   │   ├── layout/
+│   │   │   │   ├── global-header.tsx
+│   │   │   │   └── sidebar.tsx
+│   │   │   ├── employees/
+│   │   │   ├── salary/
+│   │   │   └── dashboard/
+│   │   ├── pages/                 # Route-level composition
+│   │   │   ├── login-page.tsx
+│   │   │   ├── employees-page.tsx
+│   │   │   └── ...
+│   │   └── hooks/                 # UI hooks (debounce, modal state)
 ├── domain/                    # Types + pure helpers (no React)
 │   ├── types/
 │   └── formatters/            # currency display, dates
@@ -174,12 +176,63 @@ import { EmployeeFilterBar } from '@/presentation/components/employees/employee-
 
 ---
 
+## Design system — Harbor Ink
+
+**Source of truth** (do not fork a second palette):
+
+| File | Owns |
+|------|------|
+| `presentation/styles/theme.css` | Colors, fonts, radius, shadows + Tailwind `@theme` |
+| `presentation/styles/animations.css` | `fade-in`, `slide-up`, `scale-in`, `shimmer`, reduced-motion |
+| `presentation/styles/tokens.ts` | Typed `theme` object → `var(--…)` for JS/charts/inline styles |
+| `docs/development-plan.md` § Design system | Brief product-level summary |
+
+### Locked choices (use these)
+
+| Area | Choice |
+|------|--------|
+| Display font | **Fraunces** (`font-display`) |
+| UI font | **Sora** (`font-sans`) |
+| Mono | **IBM Plex Mono** (`font-mono`) |
+| Brand | Teal `#0d7377` → `bg-brand` / `text-brand` |
+| Accent | Gold `#d4a017` → `bg-accent` (sparingly) |
+| Ink / muted | `text-ink`, `text-ink-muted`, `text-ink-subtle` |
+| Surfaces | `bg-canvas`, `bg-surface`, `bg-surface-raised` |
+| Borders | `border-border`, `border-border-strong` |
+| Radius | `rounded-sm` … `rounded-xl` (theme radii) |
+| Elevation | `shadow-xs` … `shadow-lg` |
+| Motion | `animate-fade-in`, `animate-slide-up`, `animate-scale-in`, `transition-theme` |
+| Status | `danger` / `success` / `warning` (+ `*-soft` backgrounds) |
+
+### Rules for consistent UI
+
+1. **Prefer Tailwind theme utilities** mapped from Harbor Ink (`bg-brand`, `text-ink-muted`, `shadow-md`, …).
+2. **No hardcoded hex/rgb** in components unless extending `theme.css` first.
+3. **No Inter / Roboto / Arial / system-ui as primary UI fonts** — Sora + Fraunces only.
+4. **Avoid** purple-indigo gradients, cream+terracotta “AI default” looks, and dark-mode-first layouts (dark mode optional, not MVP).
+5. When adding **shadcn**, map its CSS variables to Harbor Ink tokens in `theme.css` / globals — one visual language.
+6. Page entry motion: prefer `animate-slide-up` or `animate-fade-in` on primary panels; respect `prefers-reduced-motion`.
+7. Spacing: Tailwind scale is fine; for custom CSS use `--space-*` from theme.
+
+```tsx
+// Good
+<section className="rounded-xl border border-border bg-surface p-8 shadow-md animate-slide-up">
+  <h1 className="font-display text-3xl text-ink">Employees</h1>
+  <p className="text-ink-muted">Active directory</p>
+</section>
+
+// Bad — ad-hoc palette / fonts
+<section style={{ background: '#f4f1ea', fontFamily: 'Inter' }}>
+```
+
+---
+
 ## shadcn/ui + Tailwind
 
-- Init: `npx shadcn@latest init` in `frontend/`.
+- Init: `npx shadcn@latest init` in `frontend/` — **point colors/radius at Harbor Ink** (see § Design system).
 - Add components as needed: `button`, `input`, `table`, `dialog`, `select`, `card`, `badge`, `toast`.
 - **Do not** edit `presentation/components/ui/*` heavily — wrap in project components instead.
-- Tailwind only for layout/spacing; use shadcn tokens for colors/radius.
+- Tailwind for layout/spacing; **Harbor Ink / shadcn tokens** for color, radius, shadow — never one-off values.
 - Dark mode: optional; not required for MVP.
 
 ---
@@ -351,3 +404,4 @@ For each UI milestone, provide:
 - Skip ESLint fixes.
 - Proceed without user `APPROVED`.
 - Store server data in local `useState` when RTK Query should own it.
+- Invent ad-hoc colors, fonts, or shadows — extend Harbor Ink in `presentation/styles/` instead.

@@ -196,6 +196,18 @@ Phase 4 — Ship              M4.1 → M4.3
 
 ## Phase 3 — Frontend modules
 
+### Design system — Harbor Ink (brief)
+
+All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal brand, warm gold accent):
+
+| Token area | Source of truth |
+|------------|-----------------|
+| Colors, fonts, radius, shadows | `frontend/src/presentation/styles/theme.css` |
+| Motion (fade / slide / scale) | `frontend/src/presentation/styles/animations.css` |
+| Typed JS/TS refs | `frontend/src/presentation/styles/tokens.ts` |
+
+**Fonts:** Fraunces (display) · Sora (UI) · IBM Plex Mono. **Do not** invent ad-hoc colors or system font stacks — use Tailwind theme utilities (`bg-brand`, `text-ink`, `shadow-md`, `font-display`, …) or `theme` from `tokens.ts`. Full rules: `agents/frontend-agent.md` § Design system.
+
 ### M3.1 — App foundation
 **Goal:** Router, Redux store, API client.
 
@@ -579,6 +591,7 @@ Testing runs **alongside each milestone** — not deferred to the end.
 | Decision | Chosen | Alternative | Why |
 |----------|--------|-------------|-----|
 | Frontend framework | React + Vite (SPA) | Next.js | Internal HR tool needs no SSR; Vite is faster to scaffold and simpler for a client-side app |
+| Design system | Harbor Ink (CSS tokens + Tailwind `@theme`) | Per-page one-off styles / default Inter purple | One palette for consistent HR UI; tokens live in `presentation/styles/` |
 | State management | RTK Query for server data + `authSlice` for auth | Full Redux slices per domain | RTK Query handles caching, loading, invalidation automatically — less boilerplate |
 | HTTP client | axios wrapped in RTK Query `baseQuery` | fetch / RTK Query default `fetchBaseQuery` | axios gives interceptors (401 → logout, token injection) without extra wiring |
 

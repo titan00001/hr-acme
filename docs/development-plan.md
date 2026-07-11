@@ -383,11 +383,11 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends` (query: `displayCurrency`; trends `from`/`to`); `GET /dashboard/recent-revisions` (query: `page`, `limit`; sort `createdAt DESC`) |
 
 - `dashboardApi` RTK Query endpoints
-- `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions (**top 10**, `createdAt DESC`)
+- `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions (**10 per page**, `createdAt DESC`, paginated)
 - `DisplayCurrencyFilter` component
 - **Component tests:** currency filter changes query params, date pickers
 
-**Done when:** Dashboard reflects live API data with filters; recent revisions show the newest 10 commits.
+**Done when:** Dashboard reflects live API data with filters; recent revisions show newest commits first (10 per page) with pagination.
 
 ---
 

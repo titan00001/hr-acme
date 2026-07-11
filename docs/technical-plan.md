@@ -656,7 +656,7 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 - **Sidebar:** Employees, Left Employees, Dashboard, Drafts, Settings
 
 #### `/dashboard` — `DashboardPage`
-- **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList` (top 10 via `GET /dashboard/recent-revisions?page=1&limit=10`, ordered by `createdAt DESC`)
+- **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList` + pagination (`page`/`limit=10` against `GET /dashboard/recent-revisions`, ordered by `createdAt DESC`)
 
 #### `/employees` — `EmployeesPage`
 - **Shows:** salary in **original currency** only

@@ -88,13 +88,15 @@ export class TypeOrmDashboardQueryAdapter implements DashboardQueryPort {
     page: number,
     limit: number,
   ): Promise<RecentRevisionResult> {
-    const qb = this.salaryRecordRepository
+    const baseQb = this.salaryRecordRepository
       .createQueryBuilder('record')
       .innerJoin(EmployeeEntity, 'employee', 'employee.id = record.employeeId')
-      .where('employee.status = :status', { status: EmployeeStatus.Active })
+      .where('employee.status = :status', { status: EmployeeStatus.Active });
+
+    const total = await baseQb.getCount();
+
+    const rows = await baseQb
       .orderBy('record.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
       .select([
         'record.id AS id',
         'record.employee_id AS "employeeId"',
@@ -106,26 +108,21 @@ export class TypeOrmDashboardQueryAdapter implements DashboardQueryPort {
         'record.reason AS reason',
         'record.created_by AS "createdBy"',
         'record.created_at AS "createdAt"',
-      ]);
-
-    const total = await this.salaryRecordRepository
-      .createQueryBuilder('record')
-      .innerJoin(EmployeeEntity, 'employee', 'employee.id = record.employeeId')
-      .where('employee.status = :status', { status: EmployeeStatus.Active })
-      .getCount();
-
-    const rows = await qb.getRawMany<{
-      id: string;
-      employeeId: string;
-      employeeName: string;
-      employeeCode: string;
-      effectiveDate: string | Date;
-      currency: string;
-      totalCompensation: string;
-      reason: string | null;
-      createdBy: string;
-      createdAt: Date;
-    }>();
+      ])
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getRawMany<{
+        id: string;
+        employeeId: string;
+        employeeName: string;
+        employeeCode: string;
+        effectiveDate: string | Date;
+        currency: string;
+        totalCompensation: string;
+        reason: string | null;
+        createdBy: string;
+        createdAt: Date;
+      }>();
 
     return {
       total,

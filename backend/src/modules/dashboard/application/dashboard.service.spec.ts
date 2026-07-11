@@ -125,4 +125,33 @@ describe('DashboardService', () => {
       { date: '2026-02-01', totalPayroll: 100, currency: 'USD' },
     ]);
   });
+
+  it('recent revisions returns pagination meta', async () => {
+    findRecentRevisionsMock.mockResolvedValue({
+      total: 25,
+      data: [
+        {
+          id: 'r1',
+          employeeId: 'e1',
+          employeeName: 'Ada',
+          employeeCode: 'E001',
+          effectiveDate: '2026-04-01',
+          currency: 'INR',
+          totalCompensation: '100.00',
+          reason: null,
+          createdBy: 'admin',
+          createdAt: new Date('2026-04-01T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    const result = await service.getRecentRevisions({ page: 2, limit: 10 });
+
+    expect(findRecentRevisionsMock).toHaveBeenCalledWith(2, 10);
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(10);
+    expect(result.total).toBe(25);
+    expect(result.totalPages).toBe(3);
+    expect(result.data).toHaveLength(1);
+  });
 });

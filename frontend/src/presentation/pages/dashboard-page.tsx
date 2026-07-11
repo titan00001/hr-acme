@@ -17,10 +17,11 @@ import { RecentRevisionsList } from '@/presentation/components/dashboard/recent-
 import { SalaryDistributionChart } from '@/presentation/components/dashboard/salary-distribution-chart';
 import { SummaryCards } from '@/presentation/components/dashboard/summary-cards';
 import { LeftEmployeesNotice } from '@/presentation/components/employees/left-employees-notice';
+import { PaginationControls } from '@/presentation/components/employees/pagination-controls';
 import { ErrorHandler } from '@/presentation/components/feedback/error-handler';
 import { PageHeader } from '@/presentation/components/layout/page-header';
 
-const RECENT_REVISIONS_LIMIT = 10;
+const RECENT_REVISIONS_PAGE_SIZE = 10;
 
 function Section({
   title,
@@ -42,6 +43,7 @@ export function DashboardPage(): React.ReactElement {
     DISPLAY_CURRENCY_ORIGINAL,
   );
   const [trendsRange, setTrendsRange] = useState(defaultTrendsRange);
+  const [revisionsPage, setRevisionsPage] = useState(1);
 
   const currencyQuery = useMemo(
     () => ({ displayCurrency }),
@@ -55,16 +57,17 @@ export function DashboardPage(): React.ReactElement {
     }),
     [displayCurrency, trendsRange.from, trendsRange.to],
   );
+  const revisionsQueryArgs = useMemo(
+    () => ({ page: revisionsPage, limit: RECENT_REVISIONS_PAGE_SIZE }),
+    [revisionsPage],
+  );
 
   const settingsQuery = useGetSettingsQuery();
   const summaryQuery = useGetDashboardSummaryQuery(currencyQuery);
   const byCountryQuery = useGetDashboardByCountryQuery(currencyQuery);
   const distributionQuery = useGetDashboardDistributionQuery(currencyQuery);
   const trendsApiQuery = useGetDashboardTrendsQuery(trendsQuery);
-  const revisionsQuery = useGetRecentRevisionsQuery({
-    page: 1,
-    limit: RECENT_REVISIONS_LIMIT,
-  });
+  const revisionsQuery = useGetRecentRevisionsQuery(revisionsQueryArgs);
 
   const currencies = settingsQuery.data?.supportedCurrencies ?? [];
 
@@ -140,6 +143,14 @@ export function DashboardPage(): React.ReactElement {
           rows={revisionsQuery.data?.data ?? []}
           isLoading={revisionsQuery.isFetching && !revisionsQuery.data}
         />
+        {revisionsQuery.data ? (
+          <PaginationControls
+            page={revisionsQuery.data.page}
+            totalPages={revisionsQuery.data.totalPages}
+            total={revisionsQuery.data.total}
+            onPageChange={setRevisionsPage}
+          />
+        ) : null}
       </Section>
     </main>
   );

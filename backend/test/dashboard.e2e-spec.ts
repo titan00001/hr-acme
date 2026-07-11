@@ -237,4 +237,53 @@ describe('Dashboard (e2e)', () => {
     expect(recentBody.total).toBe(1);
     expect(recentBody.data[0]?.reason).toBe('Committed');
   });
+
+  it('GET /dashboard/recent-revisions paginates by createdAt DESC', async () => {
+    for (let i = 1; i <= 3; i += 1) {
+      const employeeId = await createEmployee({
+        employeeId: `E20${i}`,
+        name: `Rev ${i}`,
+        email: `rev${i}@example.com`,
+        country: 'US',
+      });
+      await commitSalary(employeeId, {
+        baseSalary: 100_000 + i,
+        currency: 'USD',
+        effectiveDate: `2026-0${i}-01`,
+        reason: `Commit ${i}`,
+      });
+    }
+
+    const page1 = await request(app.getHttpServer())
+      .get('/dashboard/recent-revisions?page=1&limit=2')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const page1Body = page1.body as {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      data: Array<{ reason: string | null }>;
+    };
+
+    expect(page1Body.total).toBe(3);
+    expect(page1Body.page).toBe(1);
+    expect(page1Body.limit).toBe(2);
+    expect(page1Body.totalPages).toBe(2);
+    expect(page1Body.data).toHaveLength(2);
+    expect(page1Body.data[0]?.reason).toBe('Commit 3');
+    expect(page1Body.data[1]?.reason).toBe('Commit 2');
+
+    const page2 = await request(app.getHttpServer())
+      .get('/dashboard/recent-revisions?page=2&limit=2')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const page2Body = page2.body as {
+      data: Array<{ reason: string | null }>;
+    };
+    expect(page2Body.data).toHaveLength(1);
+    expect(page2Body.data[0]?.reason).toBe('Commit 1');
+  });
 });

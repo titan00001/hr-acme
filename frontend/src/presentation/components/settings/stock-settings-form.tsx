@@ -72,13 +72,22 @@ export function StockSettingsForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="stock-price-currency">Price currency</Label>
-          <Input
+          <select
             id="stock-price-currency"
             value={stockPriceCurrency}
             onChange={(event) => setStockPriceCurrency(event.target.value)}
-            placeholder="USD"
             required
-          />
+            className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink shadow-xs transition-theme focus-visible:border-brand focus-visible:shadow-focus focus-visible:outline-none"
+          >
+            {(settings.supportedCurrencies.length > 0
+              ? settings.supportedCurrencies
+              : [stockPriceCurrency]
+            ).map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

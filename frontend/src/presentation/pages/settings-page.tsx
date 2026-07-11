@@ -89,6 +89,9 @@ export function SettingsPage(): React.ReactElement {
       >
         <CurrencyRatesTable
           rates={ratesQuery.data ?? []}
+          supportedCurrencies={
+            settingsQuery.data?.supportedCurrencies ?? []
+          }
           lastFxSyncAt={settingsQuery.data?.lastFxSyncAt ?? null}
           isLoading={ratesQuery.isFetching && !ratesQuery.data}
         />

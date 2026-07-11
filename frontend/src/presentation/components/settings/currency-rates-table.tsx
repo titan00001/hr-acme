@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import { formatDate } from '@/domain/formatters/date';
 import type { CurrencyRate } from '@/domain/types/settings.types';
@@ -8,16 +8,31 @@ import { Button } from '@/presentation/components/ui/button';
 
 export type CurrencyRatesTableProps = {
   rates: CurrencyRate[];
+  /** Only show rows whose target (or base) is in this list. */
+  supportedCurrencies: string[];
   lastFxSyncAt: string | null;
   isLoading?: boolean;
 };
 
 export function CurrencyRatesTable({
   rates,
+  supportedCurrencies,
   lastFxSyncAt,
   isLoading = false,
 }: CurrencyRatesTableProps): React.ReactElement {
   const [syncRates, syncState] = useSyncCurrencyRatesMutation();
+
+  const filteredRates = useMemo(() => {
+    const allowed = new Set(
+      supportedCurrencies.map((code) => code.toUpperCase()),
+    );
+    if (allowed.size === 0) {
+      return [];
+    }
+    return rates.filter((rate) =>
+      allowed.has(rate.targetCurrency.toUpperCase()),
+    );
+  }, [rates, supportedCurrencies]);
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-surface p-4 shadow-xs">
@@ -27,6 +42,15 @@ export function CurrencyRatesTable({
           <span className="font-medium text-ink">
             {lastFxSyncAt ? formatDate(lastFxSyncAt) : 'Never'}
           </span>
+          {supportedCurrencies.length > 0 ? (
+            <>
+              {' '}
+              · Showing rates for{' '}
+              <span className="font-mono text-ink">
+                {supportedCurrencies.join(', ')}
+              </span>
+            </>
+          ) : null}
         </p>
         <Button
           type="button"
@@ -54,9 +78,11 @@ export function CurrencyRatesTable({
         <p className="py-6 text-center text-ink-muted" role="status">
           Loading currency rates…
         </p>
-      ) : rates.length === 0 ? (
+      ) : filteredRates.length === 0 ? (
         <p className="py-6 text-center text-ink-muted">
-          No rates yet. Sync to pull from the exchange-rate provider.
+          {rates.length === 0
+            ? 'No rates yet. Sync to pull from the exchange-rate provider.'
+            : 'No rates match supported currencies. Sync after updating Settings.'}
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -70,7 +96,7 @@ export function CurrencyRatesTable({
               </tr>
             </thead>
             <tbody>
-              {rates.map((rate) => (
+              {filteredRates.map((rate) => (
                 <tr
                   key={rate.id}
                   className="border-b border-border last:border-b-0"

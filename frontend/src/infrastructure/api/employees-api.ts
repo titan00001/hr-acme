@@ -27,6 +27,23 @@ export const employeesApi = baseApi.injectEndpoints({
             ]
           : [{ type: 'Employee', id: 'LIST' }],
     }),
+    getLeftEmployees: build.query<PaginatedEmployees, EmployeeQuery | void>({
+      query: (params) => ({
+        url: '/employees/left',
+        method: 'GET',
+        params: params ?? undefined,
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.data.map((employee) => ({
+                type: 'Employee' as const,
+                id: employee.id,
+              })),
+              { type: 'Employee', id: 'LEFT_LIST' },
+            ]
+          : [{ type: 'Employee', id: 'LEFT_LIST' }],
+    }),
     getEmployee: build.query<Employee, string>({
       query: (id) => ({
         url: `/employees/${id}`,
@@ -40,7 +57,7 @@ export const employeesApi = baseApi.injectEndpoints({
         method: 'POST',
         data: body,
       }),
-      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }, { type: 'Employee', id: 'LEFT_LIST' }],
     }),
     updateEmployee: build.mutation<
       Employee,
@@ -54,6 +71,7 @@ export const employeesApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Employee', id },
         { type: 'Employee', id: 'LIST' },
+        { type: 'Employee', id: 'LEFT_LIST' },
       ],
     }),
     relieveEmployee: build.mutation<
@@ -68,6 +86,7 @@ export const employeesApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Employee', id },
         { type: 'Employee', id: 'LIST' },
+        { type: 'Employee', id: 'LEFT_LIST' },
       ],
     }),
   }),
@@ -75,6 +94,7 @@ export const employeesApi = baseApi.injectEndpoints({
 
 export const {
   useGetEmployeesQuery,
+  useGetLeftEmployeesQuery,
   useGetEmployeeQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,

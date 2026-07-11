@@ -1,9 +1,7 @@
 import React from 'react';
 
+import { SalaryDraftPage } from '@/presentation/pages/salary-draft-page';
+
 export function AssignSalaryPage(): React.ReactElement {
-  return (
-    <main>
-      <h1>Assign salary</h1>
-    </main>
-  );
+  return <SalaryDraftPage mode="assign" />;
 }

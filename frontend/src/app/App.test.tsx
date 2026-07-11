@@ -1,16 +1,16 @@
-import { render, screen } from '@testing-library/react';
 import React from 'react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { App } from './App';
+import { AUTH_TOKEN_KEY } from '@/infrastructure/store/auth-slice';
 
 describe('App', () => {
-  it('renders the application title', () => {
+  it('redirects unauthenticated users to the login page', () => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+
     render(<App />);
 
-    expect(
-      screen.getByRole('heading', { name: /acme hr salary management/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/frontend scaffold ready/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
   });
 });

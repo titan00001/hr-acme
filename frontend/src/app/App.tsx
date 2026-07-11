@@ -1,10 +1,12 @@
 import React from 'react';
 
-export function App() {
+import { Providers } from '@/app/providers';
+import { AppRoutes } from '@/infrastructure/routing/routes';
+
+export function App(): React.ReactElement {
   return (
-    <main className="app-shell">
-      <h1>ACME HR Salary Management</h1>
-      <p>Frontend scaffold ready.</p>
-    </main>
+    <Providers>
+      <AppRoutes />
+    </Providers>
   );
 }

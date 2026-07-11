@@ -91,6 +91,8 @@ When backend completes a milestone that frontend depends on:
 | M2.7 Dashboard | M3.9 Dashboard |
 | M2.8 Demo | M3.10 Demo section |
 
+**Full per-milestone API list + contract wisdom:** `docs/development-plan.md` Phase 3 (Backend deps / Required APIs tables). Backend is done — use live Swagger as the contract.
+
 ---
 
 ## Definition of milestone done

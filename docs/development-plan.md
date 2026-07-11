@@ -208,8 +208,48 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 
 **Fonts:** Fraunces (display) · Sora (UI) · IBM Plex Mono. **Do not** invent ad-hoc colors or system font stacks — use Tailwind theme utilities (`bg-brand`, `text-ink`, `shadow-md`, `font-display`, …) or `theme` from `tokens.ts`. Full rules: `agents/frontend-agent.md` § Design system.
 
+### Wisdom — API contract for parallel frontend / backend
+
+**For true parallel development, a frozen API contract is mandatory** before either side builds consumers or producers in isolation. Without an agreed contract (OpenAPI / typed DTOs / example payloads), frontend and backend diverge on paths, query params, error shapes, and field names — and integration becomes rework.
+
+| Approach | When to use | Contract source |
+|----------|-------------|-----------------|
+| **Parallel (ideal next time)** | Backend and frontend start together | Agree OpenAPI (or `docs/technical-plan.md` route tables + sample JSON) **first**; both implement against that contract; mock the other side in tests |
+| **Backend-first (this project)** | Backend M1–M2 already done and functional | Treat the **running backend** as the contract: Swagger UI `/api/docs`, machine-readable `/api/docs-json`, plus `docs/technical-plan.md` for intent |
+
+**Current project rule:** Phase 2 backend is complete. Frontend milestones **must** wire to the live NestJS API — do not invent alternate paths or response shapes. Before coding a page:
+
+1. Confirm the dependent backend module(s) below are implemented.
+2. Inspect the endpoint in Swagger (`http://localhost:3001/api/docs`) or `/api/docs-json`.
+3. Mirror request/response types in `frontend/src/domain/types/` from that contract.
+4. Point `VITE_API_URL` at the running backend for manual verification.
+
+**Next-project takeaway:** if frontend and backend must move in parallel again, **specify the contract first** (OpenAPI + example payloads), then implement both sides against it. Backend-first only works when the API is already stable — which is the case here.
+
+### Frontend ↔ backend dependency map
+
+| Frontend | Needs backend module(s) | Required APIs (minimum for the page to work) |
+|----------|-------------------------|-----------------------------------------------|
+| M3.1 App foundation | M1.2 Auth (401 behavior) | Any protected route returning `401` without Bearer (e.g. `GET /employees`) |
+| M3.2 Login | M1.2 Auth | `POST /auth/login`; optional `GET /auth/me` |
+| M3.3 Auth shell | M1.2 Auth (session only) | No new APIs — uses stored JWT from M3.2 |
+| M3.4 Employees directory | M2.3 Employees | `GET /employees` |
+| M3.5 Employee detail & modals | M2.3 Employees, M2.6 Salary history | `GET/POST/PATCH /employees`, `POST /employees/:id/relieve`, `GET /employees/:id/salary/history` |
+| M3.6 Left employees | M2.3 Employees | `GET /employees/left` |
+| M3.7 Salary forms (draft) | M2.4 Templates, M2.5 Drafts, M2.1 Settings (stock/countries) | `GET /salary-templates`, `GET /salary-templates/:id`, `POST /employees/:id/salary/draft`, `GET /settings` |
+| M3.8 Drafts page | M2.5 Drafts | `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
+| M3.9 Dashboard | M2.7 Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` |
+| M3.10 Settings | M2.1 Settings, M2.2 Currency rates, M2.8 Demo | `GET/PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `GET/POST /settings/demo/*` |
+
+---
+
 ### M3.1 — App foundation
 **Goal:** Router, Redux store, API client.
+
+| | |
+|--|--|
+| **Backend deps** | M1.2 Auth (global JWT guard — unauthenticated calls return `401`) |
+| **Required APIs** | Contract smoke only: any protected route (e.g. `GET /employees`) must `401` without token so the interceptor can logout |
 
 - React Router routes skeleton
 - `authSlice` + `localStorage` persistence
@@ -217,23 +257,33 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 - `ProtectedRoute` guard
 - **Component test:** ProtectedRoute redirects when unauthenticated
 
-**Done when:** Route guard works; store configured.
+**Done when:** Route guard works; store configured; 401 interceptor verified against running backend.
 
 ---
 
 ### M3.2 — Login page
 **Goal:** Authenticate HR Manager.
 
+| | |
+|--|--|
+| **Backend deps** | M1.2 `modules/auth` |
+| **Required APIs** | `POST /auth/login` (body: username/password → JWT); optional `GET /auth/me` |
+
 - `LoginPage` + `LoginForm` (react-hook-form + zod)
 - Call `POST /auth/login`; dispatch `setCredentials`; navigate to dashboard
 - **Component tests:** valid submit, validation errors
 
-**Done when:** Auth UI scenario passable manually.
+**Done when:** Auth UI works against live `POST /auth/login`.
 
 ---
 
 ### M3.3 — Auth shell layout
 **Goal:** Header, sidebar, outlet for protected routes.
+
+| | |
+|--|--|
+| **Backend deps** | M1.2 Auth (JWT already stored from M3.2) |
+| **Required APIs** | None new — shell is presentation-only |
 
 - `AuthLayout` — `GlobalHeader`, `Sidebar` (Employees, Left, Dashboard, Drafts, Settings)
 - **Component test:** sidebar renders nav items
@@ -245,78 +295,113 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 ### M3.4 — Employees directory
 **Goal:** Active employee list with search and pagination.
 
+| | |
+|--|--|
+| **Backend deps** | M2.3 `modules/employees` |
+| **Required APIs** | `GET /employees` (query: search, filters, sort, page, limit → paginated Active employees; salary in original currency) |
+
 - `employeesApi` RTK Query endpoints
 - `EmployeesPage` — filter bar, table, salary in original currency
 - **Component tests:** table renders rows, search debounce
 
-**Done when:** Directory loads paginated employees from API.
+**Done when:** Directory loads paginated employees from live `GET /employees`.
 
 ---
 
 ### M3.5 — Employee detail & modals
 **Goal:** Profile, onboard, relieve.
 
+| | |
+|--|--|
+| **Backend deps** | M2.3 `modules/employees`; M2.6 `modules/salary` (history) |
+| **Required APIs** | `GET /employees/:id`, `POST /employees` (onboard), `PATCH /employees/:id`, `POST /employees/:id/relieve`, `GET /employees/:id/salary/history` |
+
 - `EmployeeDetailPage` — info card, current salary, history timeline
 - `OnboardModal`, `RelieveModal`
 - **Component tests:** onboard form validation, relieve confirmation
 
-**Done when:** Onboard and relieve workflows work end-to-end via UI.
+**Done when:** Onboard and relieve workflows work end-to-end via UI against live APIs.
 
 ---
 
 ### M3.6 — Left employees page
 **Goal:** Separate view for relieved employees.
 
+| | |
+|--|--|
+| **Backend deps** | M2.3 `modules/employees` |
+| **Required APIs** | `GET /employees/left` (paginated Left employees) |
+
 - `LeftEmployeesPage` — notice banner, read-only table
 - `GET /employees/left` wired
 - **Component test:** notice banner renders
 
-**Done when:** Left employees visible; excluded from Active directory.
+**Done when:** Left employees visible from live API; excluded from Active directory.
 
 ---
 
 ### M3.7 — Salary forms (draft)
 **Goal:** Assign and edit salary → save as draft.
 
+| | |
+|--|--|
+| **Backend deps** | M2.4 `modules/salary-templates`; M2.5 `modules/salary-drafts`; M2.1 `modules/settings` (stock price / countries for form context) |
+| **Required APIs** | `GET /salary-templates`, `GET /salary-templates/:id`, `POST /employees/:id/salary/draft`, `GET /settings` |
+
 - `AssignSalaryPage`, `EditSalaryPage` — `TemplatePicker`, `SalaryForm`
 - `salaryDraftsApi` — `POST /employees/:id/salary/draft`
 - **Component tests:** template pre-fill, form validation, paymentCycle enum
 
-**Done when:** Saving salary creates/updates draft; no direct commit from form.
+**Done when:** Saving salary creates/updates draft via live API; no direct commit from form.
 
 ---
 
 ### M3.8 — Drafts page
 **Goal:** Review, commit, rollback pending changes.
 
+| | |
+|--|--|
+| **Backend deps** | M2.5 `modules/salary-drafts` |
+| **Required APIs** | `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
+
 - `DraftsPage` — table with Commit / Rollback / Edit actions
 - Wire commit and rollback endpoints
 - **Component tests:** commit button calls API, rollback confirms
 
-**Done when:** Full draft → commit → active salary flow works via UI.
+**Done when:** Full draft → commit → active salary flow works via UI against live APIs.
 
 ---
 
 ### M3.9 — Dashboard page
 **Goal:** Metrics with currency filter and date range.
 
+| | |
+|--|--|
+| **Backend deps** | M2.7 `modules/dashboard` (uses FX rates from M2.2 when `displayCurrency` ≠ `original`) |
+| **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends`, `GET /dashboard/recent-revisions` (query: `displayCurrency`, trends `from`/`to`) |
+
 - `dashboardApi` RTK Query endpoints
 - `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions
 - `DisplayCurrencyFilter` component
 - **Component tests:** currency filter changes query params, date pickers
 
-**Done when:** Dashboard reflects API data with filters.
+**Done when:** Dashboard reflects live API data with filters.
 
 ---
 
 ### M3.10 — Settings page
 **Goal:** Config, FX sync, stock, demo.
 
+| | |
+|--|--|
+| **Backend deps** | M2.1 `modules/settings`; M2.2 `modules/currency-rates`; M2.8 `modules/demo` |
+| **Required APIs** | `GET /settings`, `PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `GET /settings/demo/status`, `POST /settings/demo/seed`, `POST /settings/demo/clear` |
+
 - `settingsApi`, `currencyRatesApi`, `demoApi`
 - `SettingsPage` — base currency, countries, stock, `CurrencyRatesTable` + Sync, Demo seed/clear
 - **Component tests:** sync button triggers API, demo confirmation dialog
 
-**Done when:** Settings fully functional; FX sync works against backend.
+**Done when:** Settings fully functional against live backend; FX sync works.
 
 ---
 

@@ -298,22 +298,27 @@ Map tests to **Given/When/Then** in `docs/development-plan.md`.
 
 ## Backend dependency check
 
-Before starting a frontend milestone, verify:
+Before starting a frontend milestone, read **Phase 3** in `docs/development-plan.md` — each M3.x lists **Backend deps** and **Required APIs**.
+
+**Wisdom (contracts):** Parallel frontend/backend needs a frozen API contract first. This project is **backend-first** — Phase 2 is done — so use the **live API** as the contract (`/api/docs`, `/api/docs-json`), not invented shapes. Details: `docs/development-plan.md` § Wisdom — API contract.
+
+Before coding:
 
 ```markdown
-Backend milestone required: M2.3
-Status: User must confirm APPROVED: M2.3
+Backend module(s) required: <from development-plan M3.x table>
+Required APIs: <listed endpoints>
+Contract source: running backend Swagger /api/docs (+ /api/docs-json)
 ```
 
-If not approved, **stop** and tell user which backend milestone is blocking.
+If a required endpoint is missing or differs from Swagger, **stop** and report the mismatch — do not invent alternate paths.
 
 ---
 
 ## Workflow per milestone
 
-1. Confirm backend dependency is gate-approved.
+1. Confirm backend deps + required APIs from `docs/development-plan.md` Phase 3; verify against Swagger.
 2. Read milestone in `docs/development-plan.md`.
-3. Read pages/API in `docs/technical-plan.md`.
+3. Read pages/API in `docs/technical-plan.md`; prefer live `/api/docs-json` for request/response shapes.
 4. Implement presentation + infrastructure for scope only.
 5. Write component tests.
 6. Run `cd frontend && yarn test && yarn lint`.

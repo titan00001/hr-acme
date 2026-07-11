@@ -3,6 +3,7 @@ import type {
   CountryBreakdown,
   DashboardCurrencyQuery,
   DashboardRecentQuery,
+  DashboardReconcileResult,
   DashboardSummary,
   DashboardTrendsQuery,
   DistributionBucket,
@@ -61,6 +62,15 @@ export const dashboardApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Dashboard'],
     }),
+    reconcileDashboardSnapshots: build.mutation<DashboardReconcileResult, void>(
+      {
+        query: () => ({
+          url: '/settings/dashboard/reconcile',
+          method: 'POST',
+        }),
+        invalidatesTags: ['Dashboard'],
+      },
+    ),
   }),
 });
 
@@ -70,4 +80,5 @@ export const {
   useGetDashboardDistributionQuery,
   useGetDashboardTrendsQuery,
   useGetRecentRevisionsQuery,
+  useReconcileDashboardSnapshotsMutation,
 } = dashboardApi;

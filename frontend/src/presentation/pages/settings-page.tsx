@@ -4,6 +4,7 @@ import { useGetCurrencyRatesQuery } from '@/infrastructure/api/currency-rates-ap
 import { useGetDemoStatusQuery } from '@/infrastructure/api/demo-api';
 import { useGetSettingsQuery } from '@/infrastructure/api/settings-api';
 import { CurrencyRatesTable } from '@/presentation/components/settings/currency-rates-table';
+import { DashboardReconcileSection } from '@/presentation/components/settings/dashboard-reconcile-section';
 import { DemoSettingsSection } from '@/presentation/components/settings/demo-settings-section';
 import { GeneralSettingsForm } from '@/presentation/components/settings/general-settings-form';
 import { StockSettingsForm } from '@/presentation/components/settings/stock-settings-form';
@@ -91,6 +92,13 @@ export function SettingsPage(): React.ReactElement {
           lastFxSyncAt={settingsQuery.data?.lastFxSyncAt ?? null}
           isLoading={ratesQuery.isFetching && !ratesQuery.data}
         />
+      </Section>
+
+      <Section
+        title="Dashboard snapshots"
+        description="Ops recovery — rebuild pre-aggregated metrics from committed salaries."
+      >
+        <DashboardReconcileSection />
       </Section>
 
       <Section title="Demo data">

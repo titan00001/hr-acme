@@ -708,6 +708,7 @@ Actions: `setCredentials({ token })`, `logout()`
 | `getDistribution` | `/dashboard/distribution` |
 | `getTrends(query)` | `/dashboard/trends` |
 | `getRecentRevisions` | `/dashboard/recent-revisions` |
+| `reconcileDashboardSnapshots` | `POST /settings/dashboard/reconcile` |
 
 #### `lib/types/` — TypeScript models (mirror backend response DTOs)
 
@@ -765,8 +766,8 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 - **Flow:** save draft via `POST /employees/:id/salary/draft` → redirect to `/drafts` or employee detail
 
 #### `/settings` — `SettingsPage`
-- **Sections:** General (base currency, countries), **CurrencyRatesTable** + **Sync** button, Stock, Demo
-- **Data:** `settingsApi`, `currencyRatesApi`, `demoApi`
+- **Sections:** General (base currency, countries), **CurrencyRatesTable** + **Sync** button, Stock, **Dashboard snapshots** (reconcile), Demo
+- **Data:** `settingsApi`, `currencyRatesApi`, `demoApi`, `dashboardApi.reconcileDashboardSnapshots` → `POST /settings/dashboard/reconcile`
 
 ---
 

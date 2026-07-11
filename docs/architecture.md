@@ -213,8 +213,8 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 | Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
 | Salary | `POST /employees/:id/salary` (assign → draft), `GET /employees/:id/salary/history` |
 | Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
-| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends` — query: `displayCurrency` (+ `from`/`to` on trends); `GET /dashboard/recent-revisions` — query: `page`, `limit`; sort `createdAt DESC` |
-| Settings | `GET/PATCH /settings` |
+| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends` — query: `displayCurrency` (+ `from`/`to` on trends); `GET /dashboard/recent-revisions` — query: `page`, `limit`; sort `createdAt DESC`; ops: `POST /settings/dashboard/reconcile` |
+| Settings | `GET/PATCH /settings`; `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`; `POST /settings/dashboard/reconcile`; `GET/POST /settings/demo/*` |
 | Settings — Demo | `POST /settings/demo/seed`, `POST /settings/demo/clear`, `GET /settings/demo/status` |
 
 OpenAPI spec and interactive docs served at `/api/docs` (Swagger UI). DTOs decorated with `@ApiProperty`; controllers with `@ApiTags`, `@ApiOperation`, `@ApiResponse`.
@@ -292,7 +292,7 @@ frontend/
 | `/employees/:id/salary/create` | AssignSalaryPage → saves draft | Protected |
 | `/employees/:id/salary/edit` | EditSalaryPage → saves draft | Protected |
 | `/drafts` | DraftsPage — commit or rollback pending changes | Protected |
-| `/settings` | SettingsPage (FX table + Sync, stock, demo) | Protected |
+| `/settings` | SettingsPage (FX table + Sync, stock, dashboard reconcile, demo) | Protected |
 | `/templates` | TemplatesPage (list / create / edit / delete / new version) | Protected |
 | `/templates/:id` | TemplateDetailPage (versions, migrate) | Protected |
 

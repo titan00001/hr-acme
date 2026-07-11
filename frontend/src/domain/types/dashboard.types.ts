@@ -67,3 +67,10 @@ export interface DashboardRecentQuery {
   page?: number;
   limit?: number;
 }
+
+/** Mirrors backend DashboardReconcileResponseDto */
+export interface DashboardReconcileResult {
+  countries: number;
+  trends: number;
+}
+

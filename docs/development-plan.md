@@ -405,14 +405,15 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | | |
 |--|--|
 | **Backend deps** | M2.7 `modules/dashboard` (uses FX rates from M2.2 when `displayCurrency` ≠ `original`) |
-| **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends` (query: `displayCurrency`; trends `from`/`to`); `GET /dashboard/recent-revisions` (query: `page`, `limit`; sort `createdAt DESC`) |
+| **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends` (query: `displayCurrency`; trends `from`/`to`); `GET /dashboard/recent-revisions` (query: `page`, `limit`; sort `createdAt DESC`); ops: `POST /settings/dashboard/reconcile` (Settings UI) |
 
-- `dashboardApi` RTK Query endpoints
-- `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions (**10 per page**, `createdAt DESC`, paginated)
+- `dashboardApi` RTK Query endpoints (incl. reconcile mutation)
+- `DashboardPage` — summary cards, country table, distribution chart (fixed buckets), trends chart (`from`/`to`), recent revisions (**10 per page**, `createdAt DESC`, paginated)
 - `DisplayCurrencyFilter` component
-- **Component tests:** currency filter changes query params, date pickers
+- Settings → **Dashboard snapshots** — confirm + `POST /settings/dashboard/reconcile`
+- **Component tests:** currency filter changes query params, date pickers, reconcile confirmation
 
-**Done when:** Dashboard reflects live API data with filters; recent revisions show newest commits first (10 per page) with pagination.
+**Done when:** Dashboard reflects live snapshot APIs with filters; reconcile available from Settings for ops recovery.
 
 ---
 
@@ -422,13 +423,13 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | | |
 |--|--|
 | **Backend deps** | M2.1 `modules/settings`; M2.2 `modules/currency-rates`; M2.8 `modules/demo` |
-| **Required APIs** | `GET /settings`, `PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `GET /settings/demo/status`, `POST /settings/demo/seed`, `POST /settings/demo/clear` |
+| **Required APIs** | `GET /settings`, `PATCH /settings`, `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`, `POST /settings/dashboard/reconcile`, `GET /settings/demo/status`, `POST /settings/demo/seed`, `POST /settings/demo/clear` |
 
-- `settingsApi`, `currencyRatesApi`, `demoApi`
-- `SettingsPage` — base currency, countries, stock, `CurrencyRatesTable` + Sync, Demo seed/clear
-- **Component tests:** sync button triggers API, demo confirmation dialog
+- `settingsApi`, `currencyRatesApi`, `demoApi`, dashboard reconcile via `dashboardApi`
+- `SettingsPage` — base currency, countries, stock, `CurrencyRatesTable` + Sync, **Dashboard snapshots reconcile**, Demo seed/clear
+- **Component tests:** sync button triggers API, demo confirmation dialog, reconcile confirmation
 
-**Done when:** Settings fully functional against live backend; FX sync works.
+**Done when:** Settings fully functional against live backend; FX sync and snapshot reconcile work.
 
 ---
 

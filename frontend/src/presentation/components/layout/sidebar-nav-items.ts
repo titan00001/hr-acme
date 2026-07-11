@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   LayoutDashboard,
+  Layers,
   Settings,
   UserMinus,
   Users,
@@ -19,5 +20,6 @@ export const sidebarNavItems: SidebarNavItem[] = [
   { to: '/employees/left', label: 'Left Employees', icon: UserMinus },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/drafts', label: 'Drafts', icon: ClipboardList },
+  { to: '/templates', label: 'Templates', icon: Layers },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

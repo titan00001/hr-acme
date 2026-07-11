@@ -12,6 +12,8 @@ import { EmployeesPage } from '@/presentation/pages/employees-page';
 import { LeftEmployeesPage } from '@/presentation/pages/left-employees-page';
 import { LoginPage } from '@/presentation/pages/login-page';
 import { SettingsPage } from '@/presentation/pages/settings-page';
+import { TemplateDetailPage } from '@/presentation/pages/template-detail-page';
+import { TemplatesPage } from '@/presentation/pages/templates-page';
 
 export function AppRoutes(): React.ReactElement {
   return (
@@ -33,6 +35,8 @@ export function AppRoutes(): React.ReactElement {
               element={<EditSalaryPage />}
             />
             <Route path="/drafts" element={<DraftsPage />} />
+            <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/templates/:id" element={<TemplateDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>

@@ -10,6 +10,13 @@ export default mergeConfig(
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
       globals: true,
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/e2e/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
+      ],
     },
   }),
 );

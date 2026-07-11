@@ -86,10 +86,13 @@ export function DraftsTable({
                       to={`/employees/${draft.employeeId}`}
                       className="font-medium text-brand hover:underline"
                     >
-                      View employee
+                      {draft.employee.name}
                     </Link>
-                    <div className="font-mono text-xs text-ink-subtle">
-                      {draft.employeeId.slice(0, 8)}…
+                    <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-ink-muted">
+                      <span className="font-mono text-ink-subtle">
+                        {draft.employee.employeeId}
+                      </span>
+                      <span>{draft.employee.email}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-ink">

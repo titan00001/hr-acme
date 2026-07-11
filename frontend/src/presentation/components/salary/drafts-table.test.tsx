@@ -24,6 +24,11 @@ vi.mock('@/infrastructure/api/salary-drafts-api', () => ({
 const sampleDraft: SalaryDraft = {
   id: 'draft-1',
   employeeId: '11111111-1111-1111-1111-111111111111',
+  employee: {
+    employeeId: 'E001',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+  },
   templateId: null,
   effectiveDate: '2026-04-01',
   baseSalary: '1000000.00',
@@ -49,6 +54,22 @@ describe('DraftsTable', () => {
     rollbackDraft.mockReturnValue({
       unwrap: () => Promise.resolve(undefined),
     });
+  });
+
+  it('renders employee name, business id, and email linked to detail', () => {
+    render(
+      <MemoryRouter>
+        <DraftsTable rows={[sampleDraft]} />
+      </MemoryRouter>,
+    );
+
+    const nameLink = screen.getByRole('link', { name: /ada lovelace/i });
+    expect(nameLink).toHaveAttribute(
+      'href',
+      '/employees/11111111-1111-1111-1111-111111111111',
+    );
+    expect(screen.getByText('E001')).toBeInTheDocument();
+    expect(screen.getByText('ada@example.com')).toBeInTheDocument();
   });
 
   it('calls commit API when Commit is clicked', async () => {

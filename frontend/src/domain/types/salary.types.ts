@@ -28,9 +28,18 @@ export interface UpsertSalaryDraftRequest {
   reason?: string;
 }
 
+/** Nested identity on draft responses (business code + display fields) */
+export interface DraftEmployeeSummary {
+  employeeId: string;
+  name: string;
+  email: string;
+}
+
 export interface SalaryDraft {
   id: string;
+  /** Employee UUID — use for `/employees/:id` links */
   employeeId: string;
+  employee: DraftEmployeeSummary;
   templateId: string | null;
   effectiveDate: string;
   baseSalary: string;

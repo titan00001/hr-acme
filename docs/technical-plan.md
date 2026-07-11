@@ -375,9 +375,10 @@ Index: `(name)`, `(country)`, `(currency)`.
 
 **Purpose:** Analytics for **Active employees only**. Optional display-currency conversion.
 
-**Query params (all dashboard endpoints):**
-- `displayCurrency`: `original` \| `USD` \| `INR` \| ... (supported currencies)
-- `from`, `to`: date range (trends)
+**Query params:**
+- `displayCurrency`: `original` \| `USD` \| `INR` \| ... (supported currencies) — summary, by-country, distribution, trends
+- `from`, `to`: date range (trends only)
+- `page`, `limit`: pagination (recent-revisions only)
 
 **Service — `DashboardService`:**
 
@@ -387,7 +388,16 @@ Index: `(name)`, `(country)`, `(currency)`.
 | `getByCountry(query)` | Group by country; respect `displayCurrency` |
 | `getDistribution(query)` | Fixed buckets; convert if display currency set |
 | `getTrends(query)` | Filter `effectiveDate` between `from` and `to`; daily/weekly granularity |
-| `getRecentRevisions(limit)` | Latest **committed** SalaryRecords |
+| `getRecentRevisions(page, limit)` | **Committed** SalaryRecords for Active employees only; **sorted `createdAt DESC`** (newest commit first); paginated |
+
+**`GET /dashboard/recent-revisions` contract:**
+
+| | |
+|--|--|
+| Query | `page` (default `1`), `limit` (default `10`, max `100`) |
+| Sort | Fixed: `createdAt DESC` (commit time). No `sortBy` query param. |
+| Response | Standard paginated envelope: `{ data, total, page, limit, totalPages }` |
+| Row shape | `id`, `employeeId` (UUID), `employeeName`, `employeeCode`, `effectiveDate`, `currency`, `totalCompensation`, `reason`, `createdBy`, `createdAt` |
 
 **Routes:** `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions`
 
@@ -646,7 +656,7 @@ Pagination.ts       (PaginationQuery, PaginatedResponse<T>)
 - **Sidebar:** Employees, Left Employees, Dashboard, Drafts, Settings
 
 #### `/dashboard` — `DashboardPage`
-- **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList`
+- **Components:** `SummaryCards`, `DisplayCurrencyFilter` (`original` + supported currencies), `CountryBreakdownTable`, `SalaryDistributionChart`, `CompensationTrendsChart` (`from`/`to` date pickers), `RecentRevisionsList` (top 10 via `GET /dashboard/recent-revisions?page=1&limit=10`, ordered by `createdAt DESC`)
 
 #### `/employees` — `EmployeesPage`
 - **Shows:** salary in **original currency** only

@@ -380,14 +380,14 @@ All M3.x UI must follow the **Harbor Ink** theme (cool mist surfaces, deep teal 
 | | |
 |--|--|
 | **Backend deps** | M2.7 `modules/dashboard` (uses FX rates from M2.2 when `displayCurrency` ≠ `original`) |
-| **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends`, `GET /dashboard/recent-revisions` (query: `displayCurrency`, trends `from`/`to`) |
+| **Required APIs** | `GET /dashboard/summary`, `GET /dashboard/by-country`, `GET /dashboard/distribution`, `GET /dashboard/trends` (query: `displayCurrency`; trends `from`/`to`); `GET /dashboard/recent-revisions` (query: `page`, `limit`; sort `createdAt DESC`) |
 
 - `dashboardApi` RTK Query endpoints
-- `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions
+- `DashboardPage` — summary cards, country table, distribution chart, trends chart (`from`/`to`), recent revisions (**top 10**, `createdAt DESC`)
 - `DisplayCurrencyFilter` component
 - **Component tests:** currency filter changes query params, date pickers
 
-**Done when:** Dashboard reflects live API data with filters.
+**Done when:** Dashboard reflects live API data with filters; recent revisions show the newest 10 commits.
 
 ---
 

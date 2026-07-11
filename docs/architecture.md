@@ -213,7 +213,7 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 | Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
 | Salary | `POST /employees/:id/salary` (assign → draft), `GET /employees/:id/salary/history` |
 | Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
-| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends`, `/recent-revisions` — query: `displayCurrency`, `from`, `to` |
+| Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends` — query: `displayCurrency` (+ `from`/`to` on trends); `GET /dashboard/recent-revisions` — query: `page`, `limit`; sort `createdAt DESC` |
 | Settings | `GET/PATCH /settings` |
 | Settings — Demo | `POST /settings/demo/seed`, `POST /settings/demo/clear`, `GET /settings/demo/status` |
 
@@ -248,7 +248,7 @@ Canonical metric list lives in [requirements.md](./requirements.md#dashboard--re
 | `GET /dashboard/by-country` | `[{ country, payroll, headcount, currency }]` |
 | `GET /dashboard/distribution` | `[{ range, count }]` — fixed buckets in selected display currency |
 | `GET /dashboard/trends` | `[{ date, totalPayroll }]` — query: `from`, `to` (date range) |
-| `GET /dashboard/recent-revisions` | Latest committed salary changes, paginated |
+| `GET /dashboard/recent-revisions` | Latest committed salary changes for Active employees; query `page`/`limit`; **sorted `createdAt DESC`**; `{ data, total, page, limit, totalPages }` |
 
 **`displayCurrency` query param:** `original` (breakdown by native currency, no cross-currency sum) or any supported currency (convert via DB rates for display).
 

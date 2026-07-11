@@ -1,7 +1,11 @@
 import { baseApi } from '@/infrastructure/api/base-api';
 import type {
+  CreateEmployeeRequest,
+  Employee,
   EmployeeQuery,
   PaginatedEmployees,
+  RelieveEmployeeRequest,
+  UpdateEmployeeRequest,
 } from '@/domain/types/employee.types';
 
 export const employeesApi = baseApi.injectEndpoints({
@@ -23,7 +27,56 @@ export const employeesApi = baseApi.injectEndpoints({
             ]
           : [{ type: 'Employee', id: 'LIST' }],
     }),
+    getEmployee: build.query<Employee, string>({
+      query: (id) => ({
+        url: `/employees/${id}`,
+        method: 'GET',
+      }),
+      providesTags: (_result, _error, id) => [{ type: 'Employee', id }],
+    }),
+    createEmployee: build.mutation<Employee, CreateEmployeeRequest>({
+      query: (body) => ({
+        url: '/employees',
+        method: 'POST',
+        data: body,
+      }),
+      invalidatesTags: [{ type: 'Employee', id: 'LIST' }],
+    }),
+    updateEmployee: build.mutation<
+      Employee,
+      { id: string; body: UpdateEmployeeRequest }
+    >({
+      query: ({ id, body }) => ({
+        url: `/employees/${id}`,
+        method: 'PATCH',
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Employee', id },
+        { type: 'Employee', id: 'LIST' },
+      ],
+    }),
+    relieveEmployee: build.mutation<
+      Employee,
+      { id: string; body?: RelieveEmployeeRequest }
+    >({
+      query: ({ id, body }) => ({
+        url: `/employees/${id}/relieve`,
+        method: 'POST',
+        data: body ?? {},
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Employee', id },
+        { type: 'Employee', id: 'LIST' },
+      ],
+    }),
   }),
 });
 
-export const { useGetEmployeesQuery } = employeesApi;
+export const {
+  useGetEmployeesQuery,
+  useGetEmployeeQuery,
+  useCreateEmployeeMutation,
+  useUpdateEmployeeMutation,
+  useRelieveEmployeeMutation,
+} = employeesApi;

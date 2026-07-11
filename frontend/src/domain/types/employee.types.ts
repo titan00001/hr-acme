@@ -23,6 +23,27 @@ export interface Employee {
   updatedAt: string;
 }
 
+export interface CreateEmployeeRequest {
+  employeeId: string;
+  name: string;
+  email: string;
+  country: string;
+  employmentType: EmploymentType;
+  joiningDate: string;
+}
+
+export interface UpdateEmployeeRequest {
+  name?: string;
+  email?: string;
+  country?: string;
+  employmentType?: EmploymentType;
+  joiningDate?: string;
+}
+
+export interface RelieveEmployeeRequest {
+  reason?: string;
+}
+
 export interface EmployeeQuery {
   page?: number;
   limit?: number;

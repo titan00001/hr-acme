@@ -8,9 +8,11 @@ import {
   type EmployeeFilterValues,
 } from '@/presentation/components/employees/employee-filter-bar';
 import { EmployeeTable } from '@/presentation/components/employees/employee-table';
+import { OnboardModal } from '@/presentation/components/employees/onboard-modal';
 import { PaginationControls } from '@/presentation/components/employees/pagination-controls';
 import { ErrorHandler } from '@/presentation/components/feedback/error-handler';
 import { PageHeader } from '@/presentation/components/layout/page-header';
+import { Button } from '@/presentation/components/ui/button';
 import { useDebouncedValue } from '@/presentation/hooks/use-debounced-value';
 
 const PAGE_SIZE = 20;
@@ -26,6 +28,7 @@ export function EmployeesPage(): React.ReactElement {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EmployeeFilterValues>(initialFilters);
   const [page, setPage] = useState(1);
+  const [onboardOpen, setOnboardOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
   const debouncedCountry = useDebouncedValue(
     filters.country,
@@ -58,6 +61,11 @@ export function EmployeesPage(): React.ReactElement {
       <PageHeader
         title="Employees"
         description="Active directory — salary shown in original currency."
+        actions={
+          <Button type="button" onClick={() => setOnboardOpen(true)}>
+            Onboard employee
+          </Button>
+        }
       />
 
       <EmployeeFilterBar values={filters} onChange={handleFiltersChange} />
@@ -88,6 +96,14 @@ export function EmployeesPage(): React.ReactElement {
           </>
         )}
       </div>
+
+      <OnboardModal
+        open={onboardOpen}
+        onClose={() => setOnboardOpen(false)}
+        onSuccess={(employeeId) => {
+          void navigate(`/employees/${employeeId}`);
+        }}
+      />
     </main>
   );
 }

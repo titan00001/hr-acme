@@ -32,6 +32,7 @@ describe('SalaryTemplateService', () => {
   >;
   let saveMock: jest.MockedFunction<SalaryTemplateRepositoryPort['save']>;
   let updateMock: jest.MockedFunction<SalaryTemplateRepositoryPort['update']>;
+  let deleteMock: jest.MockedFunction<SalaryTemplateRepositoryPort['delete']>;
   let getCountriesMock: jest.MockedFunction<SettingsService['getCountries']>;
   let getCurrenciesMock: jest.MockedFunction<SettingsService['getCurrencies']>;
 
@@ -55,6 +56,7 @@ describe('SalaryTemplateService', () => {
     findManyMock = jest.fn();
     saveMock = jest.fn();
     updateMock = jest.fn();
+    deleteMock = jest.fn();
     getCountriesMock = jest.fn();
     getCurrenciesMock = jest.fn();
 
@@ -63,6 +65,7 @@ describe('SalaryTemplateService', () => {
     findByNameAndVersionMock.mockResolvedValue(null);
     saveMock.mockImplementation((template) => Promise.resolve(template));
     updateMock.mockImplementation((template) => Promise.resolve(template));
+    deleteMock.mockResolvedValue(undefined);
     findMaxVersionByNameMock.mockResolvedValue(1);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -78,6 +81,7 @@ describe('SalaryTemplateService', () => {
             findMany: findManyMock,
             save: saveMock,
             update: updateMock,
+            delete: deleteMock,
           },
         },
         {
@@ -134,6 +138,20 @@ describe('SalaryTemplateService', () => {
     expect(created.components.basePay).toBe(1_400_000);
   });
 
+  it('creates next version when name is omitted', async () => {
+    findByIdMock.mockResolvedValue(sampleTemplate);
+    findMaxVersionByNameMock.mockResolvedValue(1);
+
+    const created = await service.createVersion('tpl-1', {
+      country: 'India',
+      currency: 'INR',
+      components: { basePay: 1_500_000 },
+    });
+
+    expect(created.version).toBe(2);
+    expect(created.name).toBe('India Standard');
+  });
+
   it('rejects edit when template is assigned', async () => {
     findByIdMock.mockResolvedValue({ ...sampleTemplate, isAssigned: true });
 
@@ -152,6 +170,23 @@ describe('SalaryTemplateService', () => {
 
     expect(updated.components.basePay).toBe(1_300_000);
     expect(updateMock).toHaveBeenCalled();
+  });
+
+  it('deletes an unassigned template', async () => {
+    findByIdMock.mockResolvedValue(sampleTemplate);
+
+    await service.remove('tpl-1');
+
+    expect(deleteMock).toHaveBeenCalledWith('tpl-1');
+  });
+
+  it('rejects delete when template is assigned', async () => {
+    findByIdMock.mockResolvedValue({ ...sampleTemplate, isAssigned: true });
+
+    await expect(service.remove('tpl-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 
   it('markAssigned sets isAssigned true', async () => {

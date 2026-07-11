@@ -168,6 +168,92 @@ describe('Salary Templates (e2e)', () => {
     expect(body.data[0]?.name).toBe('India Standard');
   });
 
+  it('GET /salary-templates filters by search and isAssigned', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/salary-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(indiaTemplate)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/salary-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'India Contract',
+        country: 'India',
+        currency: 'INR',
+        components: { basePay: 900_000 },
+      })
+      .expect(201);
+
+    const indiaId = (created.body as TemplateResponseDto).id;
+    const current = await sharedSalaryTemplateRepository.findById(indiaId);
+    await sharedSalaryTemplateRepository.update({
+      ...current!,
+      isAssigned: true,
+    });
+
+    const bySearch = await request(app.getHttpServer())
+      .get('/salary-templates?search=Contract')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect((bySearch.body as TemplateListResponseDto).total).toBe(1);
+    expect((bySearch.body as TemplateListResponseDto).data[0]?.name).toBe(
+      'India Contract',
+    );
+
+    const assigned = await request(app.getHttpServer())
+      .get('/salary-templates?isAssigned=true')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect((assigned.body as TemplateListResponseDto).total).toBe(1);
+    expect((assigned.body as TemplateListResponseDto).data[0]?.name).toBe(
+      'India Standard',
+    );
+  });
+
+  it('DELETE /salary-templates/:id removes unused template', async () => {
+    const createResponse = await request(app.getHttpServer())
+      .post('/salary-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(indiaTemplate)
+      .expect(201);
+
+    const created = createResponse.body as TemplateResponseDto;
+
+    await request(app.getHttpServer())
+      .delete(`/salary-templates/${created.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/salary-templates/${created.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(404);
+  });
+
+  it('DELETE /salary-templates/:id rejects assigned template', async () => {
+    const createResponse = await request(app.getHttpServer())
+      .post('/salary-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(indiaTemplate)
+      .expect(201);
+
+    const created = createResponse.body as TemplateResponseDto;
+    const current = await sharedSalaryTemplateRepository.findById(created.id);
+    await sharedSalaryTemplateRepository.update({
+      ...current!,
+      isAssigned: true,
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/salary-templates/${created.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(400);
+  });
+
   it('GET /salary-templates returns 401 without token', () => {
     return request(app.getHttpServer()).get('/salary-templates').expect(401);
   });

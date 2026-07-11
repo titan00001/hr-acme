@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class WidenCurrencyRatePrecision1741500006000
-  implements MigrationInterface
-{
+export class WidenCurrencyRatePrecision1741500006000 implements MigrationInterface {
   name = 'WidenCurrencyRatePrecision1741500006000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

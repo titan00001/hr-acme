@@ -7,6 +7,8 @@ export interface SalaryTemplateListQuery {
   sortOrder?: 'ASC' | 'DESC';
   country?: string;
   currency?: string;
+  search?: string;
+  isAssigned?: boolean;
 }
 
 export interface SalaryTemplateListResult {
@@ -27,4 +29,5 @@ export interface SalaryTemplateRepositoryPort {
   findMany(query: SalaryTemplateListQuery): Promise<SalaryTemplateListResult>;
   save(template: SalaryTemplate): Promise<SalaryTemplate>;
   update(template: SalaryTemplate): Promise<SalaryTemplate>;
+  delete(id: string): Promise<void>;
 }

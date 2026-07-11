@@ -42,6 +42,8 @@ export class SalaryTemplateService {
       sortOrder: query.sortOrder,
       country: query.country,
       currency: query.currency,
+      search: query.search,
+      isAssigned: query.isAssigned,
     });
 
     const meta = getPaginationMeta(result.total, page, limit);
@@ -116,7 +118,7 @@ export class SalaryTemplateService {
     const source = await this.findOne(id);
     await this.assertSupportedCountryAndCurrency(dto.country, dto.currency);
 
-    if (dto.name !== source.name) {
+    if (dto.name !== undefined && dto.name !== source.name) {
       throw new BadRequestException(
         `Version name must match template family "${source.name}"`,
       );
@@ -168,6 +170,18 @@ export class SalaryTemplateService {
     };
 
     return this.templateRepository.update(updated);
+  }
+
+  async remove(id: string): Promise<void> {
+    const current = await this.findOne(id);
+
+    if (current.isAssigned) {
+      throw new BadRequestException(
+        `Salary template ${id} is assigned and cannot be deleted; create a new version instead`,
+      );
+    }
+
+    await this.templateRepository.delete(id);
   }
 
   async markAssigned(id: string): Promise<SalaryTemplate> {

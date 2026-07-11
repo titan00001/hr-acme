@@ -53,6 +53,13 @@ export class InMemorySalaryTemplateRepository implements SalaryTemplateRepositor
     if (query.currency) {
       rows = rows.filter((row) => row.currency === query.currency);
     }
+    if (query.search) {
+      const search = query.search.toLowerCase();
+      rows = rows.filter((row) => row.name.toLowerCase().includes(search));
+    }
+    if (query.isAssigned !== undefined) {
+      rows = rows.filter((row) => row.isAssigned === query.isAssigned);
+    }
 
     const sortBy = query.sortBy ?? 'name';
     const sortOrder = query.sortOrder === 'DESC' ? -1 : 1;
@@ -101,6 +108,11 @@ export class InMemorySalaryTemplateRepository implements SalaryTemplateRepositor
       this.templates.push(this.clone(template));
     }
     return Promise.resolve(this.clone(template));
+  }
+
+  delete(id: string): Promise<void> {
+    this.templates = this.templates.filter((row) => row.id !== id);
+    return Promise.resolve();
   }
 
   clear(): void {

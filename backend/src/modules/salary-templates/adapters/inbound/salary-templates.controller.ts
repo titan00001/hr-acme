@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -11,6 +14,7 @@ import {
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -66,6 +70,16 @@ export class SalaryTemplatesController {
   ): Promise<TemplateResponseDto> {
     const template = await this.salaryTemplateService.update(id, dto);
     return this.salaryTemplateService.findOneResponse(template.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete an unassigned template (rejected when isAssigned)',
+  })
+  @ApiNoContentResponse()
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.salaryTemplateService.remove(id);
   }
 
   @Post(':id/versions')

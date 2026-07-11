@@ -99,6 +99,18 @@ export class TypeOrmSalaryTemplateRepository implements SalaryTemplateRepository
       });
     }
 
+    if (query.search) {
+      qb.andWhere('template.name ILIKE :search', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    if (query.isAssigned !== undefined) {
+      qb.andWhere('template.isAssigned = :isAssigned', {
+        isAssigned: query.isAssigned,
+      });
+    }
+
     const order = safeOrderBy(
       query.sortBy,
       query.sortOrder,
@@ -112,11 +124,12 @@ export class TypeOrmSalaryTemplateRepository implements SalaryTemplateRepository
       qb.orderBy('template.name', 'ASC').addOrderBy('template.version', 'DESC');
     }
 
-    const page = query.page;
-    const limit = query.limit;
-    qb.skip((page - 1) * limit).take(limit);
+    const total = await qb.getCount();
 
-    const [entities, total] = await qb.getManyAndCount();
+    const entities = await qb
+      .offset((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .getMany();
 
     return {
       data: entities.map(toDomain),
@@ -132,5 +145,9 @@ export class TypeOrmSalaryTemplateRepository implements SalaryTemplateRepository
   async update(template: SalaryTemplate): Promise<SalaryTemplate> {
     const saved = await this.repository.save(toEntity(template));
     return toDomain(saved);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.repository.delete(id);
   }
 }

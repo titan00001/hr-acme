@@ -1,5 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
+import { formatAxisCompact } from '@/domain/formatters/axis-compact';
 import type { DistributionBucket } from '@/domain/types/dashboard.types';
 import { theme } from '@/presentation/styles/tokens';
 
@@ -12,6 +22,15 @@ export function SalaryDistributionChart({
   buckets,
   isLoading = false,
 }: SalaryDistributionChartProps): React.ReactElement {
+  const data = useMemo(
+    () =>
+      buckets.map((bucket) => ({
+        range: bucket.range,
+        count: bucket.count,
+      })),
+    [buckets],
+  );
+
   if (isLoading) {
     return (
       <div
@@ -31,33 +50,71 @@ export function SalaryDistributionChart({
     );
   }
 
-  const maxCount = Math.max(...buckets.map((bucket) => bucket.count), 1);
-
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-xs">
-      <ul className="space-y-3" aria-label="Salary distribution">
-        {buckets.map((bucket) => {
-          const widthPercent = (bucket.count / maxCount) * 100;
-
-          return (
-            <li key={bucket.range} className="grid grid-cols-[minmax(0,9rem)_1fr_2.5rem] items-center gap-3 text-sm">
-              <span className="truncate font-mono text-xs text-ink-muted">
-                {bucket.range}
-              </span>
-              <div className="h-3 overflow-hidden rounded-sm bg-canvas-muted">
-                <div
-                  className="h-full rounded-sm transition-[width] duration-base ease-out"
-                  style={{
-                    width: `${widthPercent}%`,
-                    backgroundColor: theme.colors.brand,
-                  }}
-                />
-              </div>
-              <span className="text-right font-mono text-ink">{bucket.count}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <div
+        className="h-64 w-full"
+        role="img"
+        aria-label="Salary distribution chart"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 8, left: 4, bottom: 48 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={theme.chart.border}
+              vertical={false}
+            />
+            <XAxis
+              dataKey="range"
+              tick={{ fill: theme.chart.inkMuted, fontSize: 11 }}
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+              height={56}
+              tickLine={false}
+              axisLine={{ stroke: theme.chart.border }}
+            />
+            <YAxis
+              dataKey="count"
+              tick={{ fill: theme.chart.inkMuted, fontSize: 11 }}
+              tickFormatter={formatAxisCompact}
+              width={44}
+              tickLine={false}
+              axisLine={{ stroke: theme.chart.border }}
+              label={{
+                value: 'Employees',
+                angle: -90,
+                position: 'insideLeft',
+                style: {
+                  fill: theme.chart.inkSubtle,
+                  fontSize: 11,
+                  textAnchor: 'middle',
+                },
+              }}
+            />
+            <Tooltip
+              cursor={{ fill: theme.chart.brandSoft, opacity: 0.45 }}
+              contentStyle={{
+                borderRadius: 8,
+                borderColor: theme.chart.border,
+                fontSize: 12,
+              }}
+              formatter={(value) => [String(value ?? 0), 'Employees']}
+              labelFormatter={(label) => `Range ${String(label)}`}
+            />
+            <Bar
+              dataKey="count"
+              name="Employees"
+              fill={theme.chart.brand}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={48}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
+import { formatAxisCompact } from '@/domain/formatters/axis-compact';
 import { formatCurrency } from '@/domain/formatters/currency';
 import { formatDate } from '@/domain/formatters/date';
 import type { TrendPoint } from '@/domain/types/dashboard.types';
@@ -22,10 +32,17 @@ export function CompensationTrendsChart({
   onRangeChange,
   isLoading = false,
 }: CompensationTrendsChartProps): React.ReactElement {
-  const maxPayroll = Math.max(...points.map((point) => point.totalPayroll), 1);
-  const chartHeight = 160;
-  const chartWidth = Math.max(points.length * 48, 240);
-  const padY = 12;
+  const data = useMemo(
+    () =>
+      points.map((point, index) => ({
+        key: `${point.date}-${point.currency ?? 'x'}-${index}`,
+        label: point.date.slice(5),
+        date: point.date,
+        totalPayroll: point.totalPayroll,
+        currency: point.currency ?? '',
+      })),
+    [points],
+  );
 
   return (
     <div className="space-y-4 rounded-xl border border-border bg-surface p-4 shadow-xs">
@@ -67,51 +84,83 @@ export function CompensationTrendsChart({
           No committed salary changes in this date range.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <svg
-            role="img"
-            aria-label="Compensation trends chart"
-            width={chartWidth}
-            height={chartHeight + 36}
-            className="min-w-full"
-          >
-            {points.map((point, index) => {
-              const barWidth = 28;
-              const gap = 20;
-              const x = index * (barWidth + gap) + 8;
-              const usable = chartHeight - padY * 2;
-              const barHeight = (point.totalPayroll / maxPayroll) * usable;
-              const y = chartHeight - padY - barHeight;
-              const currency = point.currency ?? '';
-
-              return (
-                <g key={`${point.date}-${currency}-${index}`}>
-                  <title>
-                    {formatDate(point.date)}
-                    {currency ? ` · ${currency}` : ''}:{' '}
-                    {formatCurrency(point.totalPayroll, currency || 'USD')}
-                  </title>
-                  <rect
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={Math.max(barHeight, 2)}
-                    rx={2}
-                    fill={theme.colors.brand}
-                  />
-                  <text
-                    x={x + barWidth / 2}
-                    y={chartHeight + 14}
-                    textAnchor="middle"
-                    className="fill-ink-subtle"
-                    style={{ fontSize: 10 }}
-                  >
-                    {point.date.slice(5)}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+        <div
+          className="h-64 w-full"
+          role="img"
+          aria-label="Compensation trends chart"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={data}
+              margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={theme.chart.border}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: theme.chart.inkMuted, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: theme.chart.border }}
+                minTickGap={12}
+              />
+              <YAxis
+                dataKey="totalPayroll"
+                tick={{ fill: theme.chart.inkMuted, fontSize: 11 }}
+                tickFormatter={formatAxisCompact}
+                width={52}
+                tickLine={false}
+                axisLine={{ stroke: theme.chart.border }}
+                label={{
+                  value: 'Payroll',
+                  angle: -90,
+                  position: 'insideLeft',
+                  style: {
+                    fill: theme.chart.inkSubtle,
+                    fontSize: 11,
+                    textAnchor: 'middle',
+                  },
+                }}
+              />
+              <Tooltip
+                cursor={{ fill: theme.chart.brandSoft, opacity: 0.45 }}
+                contentStyle={{
+                  borderRadius: 8,
+                  borderColor: theme.chart.border,
+                  fontSize: 12,
+                }}
+                formatter={(value, _name, item) => {
+                  const currency =
+                    (item?.payload as { currency?: string } | undefined)
+                      ?.currency ?? 'USD';
+                  return [
+                    formatCurrency(Number(value ?? 0), currency || 'USD'),
+                    'Payroll',
+                  ];
+                }}
+                labelFormatter={(_label, payload) => {
+                  const point = payload?.[0]?.payload as
+                    | { date?: string; currency?: string }
+                    | undefined;
+                  if (!point?.date) {
+                    return '';
+                  }
+                  return point.currency
+                    ? `${formatDate(point.date)} · ${point.currency}`
+                    : formatDate(point.date);
+                }}
+              />
+              <Bar
+                dataKey="totalPayroll"
+                name="Payroll"
+                fill={theme.chart.brand}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={40}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>

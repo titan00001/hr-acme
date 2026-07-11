@@ -35,6 +35,15 @@ export const theme = {
     warningSoft: 'var(--color-warning-soft)',
     focusRing: 'var(--color-focus-ring)',
   },
+  /** Hex values for canvas/SVG libraries that cannot resolve CSS variables */
+  chart: {
+    brand: '#0d7377',
+    brandSoft: '#d7eef0',
+    inkMuted: '#5a6b78',
+    inkSubtle: '#8a9aa6',
+    border: '#d0dce6',
+    surface: '#ffffff',
+  },
   space: {
     0: 'var(--space-0)',
     1: 'var(--space-1)',

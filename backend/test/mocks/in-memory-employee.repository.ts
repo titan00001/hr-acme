@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { EmployeeStatus } from '../../src/common/enums/employee-status.enum';
-import type { Employee } from '../../src/modules/employees/domain/employee.model';
+import type {
+  CurrentSalarySummary,
+  Employee,
+  EmployeeListItem,
+} from '../../src/modules/employees/domain/employee.model';
 import type {
   EmployeeListQuery,
   EmployeeListResult,
@@ -10,6 +14,14 @@ import type {
 @Injectable()
 export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
   private employees: Employee[] = [];
+  private salaryLookup: (salaryId: string) => CurrentSalarySummary | null =
+    () => null;
+
+  setSalaryLookup(
+    lookup: (salaryId: string) => CurrentSalarySummary | null,
+  ): void {
+    this.salaryLookup = lookup;
+  }
 
   findById(id: string): Promise<Employee | null> {
     const employee = this.employees.find((row) => row.id === id);
@@ -26,6 +38,14 @@ export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
   findByEmail(email: string): Promise<Employee | null> {
     const employee = this.employees.find((row) => row.email === email);
     return Promise.resolve(employee ? { ...employee } : null);
+  }
+
+  findListItemById(id: string): Promise<EmployeeListItem | null> {
+    const employee = this.employees.find((row) => row.id === id);
+    if (!employee) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(this.toListItem(employee));
   }
 
   findMany(query: EmployeeListQuery): Promise<EmployeeListResult> {
@@ -60,9 +80,9 @@ export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
 
     const total = rows.length;
     const start = (query.page - 1) * query.limit;
-    const data = rows.slice(start, start + query.limit).map((row) => ({
-      ...row,
-    }));
+    const data = rows
+      .slice(start, start + query.limit)
+      .map((row) => this.toListItem(row));
 
     return Promise.resolve({ data, total });
   }
@@ -96,5 +116,15 @@ export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
 
   countByStatus(status: EmployeeStatus): number {
     return this.employees.filter((row) => row.status === status).length;
+  }
+
+  private toListItem(employee: Employee): EmployeeListItem {
+    const currentSalary = employee.currentSalaryId
+      ? this.salaryLookup(employee.currentSalaryId)
+      : null;
+    return {
+      ...employee,
+      currentSalary,
+    };
   }
 }

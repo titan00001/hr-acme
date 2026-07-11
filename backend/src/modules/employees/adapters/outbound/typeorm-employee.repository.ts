@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { safeOrderBy } from '../../../../common/pagination/pagination.utils';
-import type { Employee } from '../../domain/employee.model';
+import { SalaryRecordEntity } from '../../../salary/adapters/outbound/salary-record.entity';
+import type {
+  CurrentSalarySummary,
+  Employee,
+  EmployeeListItem,
+} from '../../domain/employee.model';
 import {
   EmployeeListQuery,
   EmployeeListResult,
@@ -57,6 +62,19 @@ function toEntity(employee: Employee): EmployeeEntity {
   return entity;
 }
 
+function toSalarySummary(
+  totalCompensation: string | null | undefined,
+  currency: string | null | undefined,
+): CurrentSalarySummary | null {
+  if (!totalCompensation || !currency) {
+    return null;
+  }
+  return {
+    totalCompensation: String(totalCompensation),
+    currency,
+  };
+}
+
 @Injectable()
 export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
   constructor(
@@ -79,8 +97,61 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
     return entity ? toDomain(entity) : null;
   }
 
+  async findListItemById(id: string): Promise<EmployeeListItem | null> {
+    const row = await this.repository
+      .createQueryBuilder('employee')
+      .leftJoin(
+        SalaryRecordEntity,
+        'salary',
+        'salary.id = employee.currentSalaryId',
+      )
+      .where('employee.id = :id', { id })
+      .select([
+        'employee.id AS id',
+        'employee.employee_id AS "employeeId"',
+        'employee.name AS name',
+        'employee.email AS email',
+        'employee.country AS country',
+        'employee.employment_type AS "employmentType"',
+        'employee.status AS status',
+        'employee.joining_date AS "joiningDate"',
+        'employee.current_salary_id AS "currentSalaryId"',
+        'employee.created_at AS "createdAt"',
+        'employee.updated_at AS "updatedAt"',
+        'salary.total_compensation AS "totalCompensation"',
+        'salary.currency AS "salaryCurrency"',
+      ])
+      .getRawOne<{
+        id: string;
+        employeeId: string;
+        name: string;
+        email: string;
+        country: string;
+        employmentType: Employee['employmentType'];
+        status: Employee['status'];
+        joiningDate: string | Date;
+        currentSalaryId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        totalCompensation: string | null;
+        salaryCurrency: string | null;
+      }>();
+
+    if (!row) {
+      return null;
+    }
+
+    return this.mapRawListItem(row);
+  }
+
   async findMany(query: EmployeeListQuery): Promise<EmployeeListResult> {
-    const qb = this.repository.createQueryBuilder('employee');
+    const qb = this.repository
+      .createQueryBuilder('employee')
+      .leftJoin(
+        SalaryRecordEntity,
+        'salary',
+        'salary.id = employee.currentSalaryId',
+      );
 
     if (query.status) {
       qb.andWhere('employee.status = :status', { status: query.status });
@@ -116,14 +187,44 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
       qb.orderBy('employee.name', 'ASC');
     }
 
-    const page = query.page;
-    const limit = query.limit;
-    qb.skip((page - 1) * limit).take(limit);
+    const total = await qb.getCount();
 
-    const [entities, total] = await qb.getManyAndCount();
+    const rows = await qb
+      .select([
+        'employee.id AS id',
+        'employee.employee_id AS "employeeId"',
+        'employee.name AS name',
+        'employee.email AS email',
+        'employee.country AS country',
+        'employee.employment_type AS "employmentType"',
+        'employee.status AS status',
+        'employee.joining_date AS "joiningDate"',
+        'employee.current_salary_id AS "currentSalaryId"',
+        'employee.created_at AS "createdAt"',
+        'employee.updated_at AS "updatedAt"',
+        'salary.total_compensation AS "totalCompensation"',
+        'salary.currency AS "salaryCurrency"',
+      ])
+      .offset((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .getRawMany<{
+        id: string;
+        employeeId: string;
+        name: string;
+        email: string;
+        country: string;
+        employmentType: Employee['employmentType'];
+        status: Employee['status'];
+        joiningDate: string | Date;
+        currentSalaryId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        totalCompensation: string | null;
+        salaryCurrency: string | null;
+      }>();
 
     return {
-      data: entities.map(toDomain),
+      data: rows.map((row) => this.mapRawListItem(row)),
       total,
     };
   }
@@ -136,5 +237,41 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
   async update(employee: Employee): Promise<Employee> {
     const saved = await this.repository.save(toEntity(employee));
     return toDomain(saved);
+  }
+
+  private mapRawListItem(row: {
+    id: string;
+    employeeId: string;
+    name: string;
+    email: string;
+    country: string;
+    employmentType: Employee['employmentType'];
+    status: Employee['status'];
+    joiningDate: string | Date;
+    currentSalaryId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    totalCompensation: string | null;
+    salaryCurrency: string | null;
+  }): EmployeeListItem {
+    const joiningDate =
+      typeof row.joiningDate === 'string'
+        ? row.joiningDate
+        : new Date(row.joiningDate).toISOString().slice(0, 10);
+
+    return {
+      id: row.id,
+      employeeId: row.employeeId,
+      name: row.name,
+      email: row.email,
+      country: row.country,
+      employmentType: row.employmentType,
+      status: row.status,
+      joiningDate,
+      currentSalaryId: row.currentSalaryId,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      currentSalary: toSalarySummary(row.totalCompensation, row.salaryCurrency),
+    };
   }
 }

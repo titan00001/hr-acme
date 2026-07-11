@@ -71,6 +71,7 @@ describe('Employees (e2e)', () => {
     expect(body.employeeId).toBe('E001');
     expect(body.status).toBe('Active');
     expect(body.currentSalaryId).toBeNull();
+    expect(body.currentSalary).toBeNull();
   });
 
   it('POST /employees rejects duplicate employeeId', async () => {

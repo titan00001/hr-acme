@@ -61,6 +61,20 @@ export const sharedSalaryTemplateRepository =
 export const sharedSalaryRecordRepository =
   new InMemorySalaryRecordRepository();
 export const sharedSalaryDraftRepository = new InMemorySalaryDraftRepository();
+
+sharedEmployeeRepository.setSalaryLookup((salaryId) => {
+  const record = sharedSalaryRecordRepository
+    .all()
+    .find((row) => row.id === salaryId);
+  if (!record) {
+    return null;
+  }
+  return {
+    totalCompensation: record.totalCompensation,
+    currency: record.currency,
+  };
+});
+
 export const sharedDashboardQuery = new InMemoryDashboardQueryAdapter(
   () => sharedEmployeeRepository.all(),
   () => sharedSalaryRecordRepository.all(),

@@ -25,6 +25,9 @@ describe('EmployeeService', () => {
     EmployeeRepositoryPort['findByEmail']
   >;
   let findManyMock: jest.MockedFunction<EmployeeRepositoryPort['findMany']>;
+  let findListItemByIdMock: jest.MockedFunction<
+    EmployeeRepositoryPort['findListItemById']
+  >;
   let saveMock: jest.MockedFunction<EmployeeRepositoryPort['save']>;
   let updateMock: jest.MockedFunction<EmployeeRepositoryPort['update']>;
   let getCountriesMock: jest.MockedFunction<SettingsService['getCountries']>;
@@ -56,6 +59,9 @@ describe('EmployeeService', () => {
     findManyMock = jest.fn() as jest.MockedFunction<
       EmployeeRepositoryPort['findMany']
     >;
+    findListItemByIdMock = jest.fn() as jest.MockedFunction<
+      EmployeeRepositoryPort['findListItemById']
+    >;
     saveMock = jest.fn() as jest.MockedFunction<EmployeeRepositoryPort['save']>;
     updateMock = jest.fn() as jest.MockedFunction<
       EmployeeRepositoryPort['update']
@@ -80,6 +86,7 @@ describe('EmployeeService', () => {
             findByEmployeeId: findByEmployeeIdMock,
             findByEmail: findByEmailMock,
             findMany: findManyMock,
+            findListItemById: findListItemByIdMock,
             save: saveMock,
             update: updateMock,
           },
@@ -106,6 +113,7 @@ describe('EmployeeService', () => {
 
     expect(created.status).toBe(EmployeeStatus.Active);
     expect(created.currentSalaryId).toBeNull();
+    expect(created.currentSalary).toBeNull();
     expect(saveMock).toHaveBeenCalled();
   });
 
@@ -139,10 +147,16 @@ describe('EmployeeService', () => {
 
   it('relieves an active employee', async () => {
     findByIdMock.mockResolvedValue(sampleEmployee);
+    findListItemByIdMock.mockResolvedValue({
+      ...sampleEmployee,
+      status: EmployeeStatus.Left,
+      currentSalary: null,
+    });
 
     const relieved = await service.relieve('emp-1');
 
     expect(relieved.status).toBe(EmployeeStatus.Left);
+    expect(relieved.currentSalary).toBeNull();
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ status: EmployeeStatus.Left }),
     );
@@ -156,7 +170,10 @@ describe('EmployeeService', () => {
   });
 
   it('lists active employees by default', async () => {
-    findManyMock.mockResolvedValue({ data: [sampleEmployee], total: 1 });
+    findManyMock.mockResolvedValue({
+      data: [{ ...sampleEmployee, currentSalary: null }],
+      total: 1,
+    });
 
     const result = await service.findAll({
       page: 1,
@@ -169,5 +186,6 @@ describe('EmployeeService', () => {
     );
     expect(result.total).toBe(1);
     expect(result.data[0]?.employeeId).toBe('E001');
+    expect(result.data[0]?.currentSalary).toBeNull();
   });
 });

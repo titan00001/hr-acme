@@ -19,7 +19,6 @@ import {
 } from '@nestjs/swagger';
 import { SWAGGER_BEARER_AUTH } from '../../../../common/swagger/setup-swagger';
 import { EmployeeService } from '../../application/employee.service';
-import { toEmployeeResponseDto } from '../../application/employee.mapper';
 import { CreateEmployeeDto } from './create-employee.dto';
 import { EmployeeQueryDto } from './employee-query.dto';
 import { EmployeeResponseDto } from './employee-response.dto';
@@ -50,42 +49,38 @@ export class EmployeesController {
   @Post()
   @ApiOperation({ summary: 'Onboard a new employee' })
   @ApiCreatedResponse({ type: EmployeeResponseDto })
-  async create(@Body() dto: CreateEmployeeDto): Promise<EmployeeResponseDto> {
-    const employee = await this.employeeService.create(dto);
-    return toEmployeeResponseDto(employee);
+  create(@Body() dto: CreateEmployeeDto): Promise<EmployeeResponseDto> {
+    return this.employeeService.create(dto);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get employee detail' })
   @ApiOkResponse({ type: EmployeeResponseDto })
-  async findOne(
+  findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EmployeeResponseDto> {
-    const employee = await this.employeeService.findOne(id);
-    return toEmployeeResponseDto(employee);
+    return this.employeeService.findOneResponse(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update employee fields' })
   @ApiOkResponse({ type: EmployeeResponseDto })
-  async update(
+  update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEmployeeDto,
   ): Promise<EmployeeResponseDto> {
-    const employee = await this.employeeService.update(id, dto);
-    return toEmployeeResponseDto(employee);
+    return this.employeeService.update(id, dto);
   }
 
   @Post(':id/relieve')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark employee as Left' })
   @ApiOkResponse({ type: EmployeeResponseDto })
-  async relieve(
+  relieve(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RelieveEmployeeDto,
   ): Promise<EmployeeResponseDto> {
     void dto;
-    const employee = await this.employeeService.relieve(id);
-    return toEmployeeResponseDto(employee);
+    return this.employeeService.relieve(id);
   }
 }

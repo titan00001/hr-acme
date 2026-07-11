@@ -1,6 +1,6 @@
 import { EmployeeStatus } from '../../../../common/enums/employee-status.enum';
 import { EmploymentType } from '../../../../common/enums/employment-type.enum';
-import type { Employee } from '../../domain/employee.model';
+import type { Employee, EmployeeListItem } from '../../domain/employee.model';
 
 export interface EmployeeListQuery {
   page: number;
@@ -14,7 +14,7 @@ export interface EmployeeListQuery {
 }
 
 export interface EmployeeListResult {
-  data: Employee[];
+  data: EmployeeListItem[];
   total: number;
 }
 
@@ -25,6 +25,7 @@ export interface EmployeeRepositoryPort {
   findByEmployeeId(employeeId: string): Promise<Employee | null>;
   findByEmail(email: string): Promise<Employee | null>;
   findMany(query: EmployeeListQuery): Promise<EmployeeListResult>;
+  findListItemById(id: string): Promise<EmployeeListItem | null>;
   save(employee: Employee): Promise<Employee>;
   update(employee: Employee): Promise<Employee>;
 }

@@ -1,6 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EmployeeStatus } from '../../../../common/enums/employee-status.enum';
 import { EmploymentType } from '../../../../common/enums/employment-type.enum';
+
+export class CurrentSalarySummaryDto {
+  @ApiProperty({ example: '1250000.00' })
+  totalCompensation!: string;
+
+  @ApiProperty({ example: 'INR' })
+  currency!: string;
+}
 
 export class EmployeeResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
@@ -29,6 +37,13 @@ export class EmployeeResponseDto {
 
   @ApiProperty({ example: null, nullable: true })
   currentSalaryId!: string | null;
+
+  @ApiPropertyOptional({
+    type: CurrentSalarySummaryDto,
+    nullable: true,
+    description: 'Active salary in original currency; null when unassigned',
+  })
+  currentSalary!: CurrentSalarySummaryDto | null;
 
   @ApiProperty()
   createdAt!: Date;

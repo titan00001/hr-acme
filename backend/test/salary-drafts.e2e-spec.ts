@@ -180,9 +180,25 @@ describe('Salary Drafts (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect((employee.body as EmployeeResponseDto).currentSalaryId).toBe(
-      record.id,
+    const employeeBody = employee.body as EmployeeResponseDto;
+    expect(employeeBody.currentSalaryId).toBe(record.id);
+    expect(employeeBody.currentSalary).toEqual({
+      totalCompensation: record.totalCompensation,
+      currency: record.currency,
+    });
+
+    const list = await request(app.getHttpServer())
+      .get('/employees')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    const listed = (list.body as { data: EmployeeResponseDto[] }).data.find(
+      (row) => row.id === employeeId,
     );
+    expect(listed?.currentSalary).toEqual({
+      totalCompensation: record.totalCompensation,
+      currency: record.currency,
+    });
   });
 
   it('DELETE /salary-drafts/:id rollbacks draft without salary change', async () => {
@@ -207,6 +223,8 @@ describe('Salary Drafts (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect((employee.body as EmployeeResponseDto).currentSalaryId).toBeNull();
+    const employeeBody = employee.body as EmployeeResponseDto;
+    expect(employeeBody.currentSalaryId).toBeNull();
+    expect(employeeBody.currentSalary).toBeNull();
   });
 });

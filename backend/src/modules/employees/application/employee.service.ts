@@ -11,6 +11,7 @@ import { getPaginationMeta } from '../../../common/pagination/pagination.utils';
 import { SettingsService } from '../../settings/application/settings.service';
 import { CreateEmployeeDto } from '../adapters/inbound/create-employee.dto';
 import { EmployeeQueryDto } from '../adapters/inbound/employee-query.dto';
+import { EmployeeResponseDto } from '../adapters/inbound/employee-response.dto';
 import { PaginatedEmployeesDto } from '../adapters/inbound/paginated-employees.dto';
 import { UpdateEmployeeDto } from '../adapters/inbound/update-employee.dto';
 import type { Employee } from '../domain/employee.model';
@@ -18,7 +19,10 @@ import {
   EMPLOYEE_REPOSITORY,
   type EmployeeRepositoryPort,
 } from '../ports/outbound/employee.repository.port';
-import { toEmployeeResponseDto } from './employee.mapper';
+import {
+  toEmployeeListResponseDto,
+  toEmployeeResponseDto,
+} from './employee.mapper';
 
 @Injectable()
 export class EmployeeService {
@@ -50,7 +54,15 @@ export class EmployeeService {
     return employee;
   }
 
-  async create(dto: CreateEmployeeDto): Promise<Employee> {
+  async findOneResponse(id: string): Promise<EmployeeResponseDto> {
+    const item = await this.employeeRepository.findListItemById(id);
+    if (!item) {
+      throw new NotFoundException(`Employee ${id} not found`);
+    }
+    return toEmployeeListResponseDto(item);
+  }
+
+  async create(dto: CreateEmployeeDto): Promise<EmployeeResponseDto> {
     await this.assertSupportedCountry(dto.country);
 
     const existingByEmployeeId = await this.employeeRepository.findByEmployeeId(
@@ -86,10 +98,14 @@ export class EmployeeService {
       updatedAt: now,
     };
 
-    return this.employeeRepository.save(employee);
+    const saved = await this.employeeRepository.save(employee);
+    return toEmployeeResponseDto(saved, null);
   }
 
-  async update(id: string, dto: UpdateEmployeeDto): Promise<Employee> {
+  async update(
+    id: string,
+    dto: UpdateEmployeeDto,
+  ): Promise<EmployeeResponseDto> {
     const current = await this.findOne(id);
 
     if (dto.country !== undefined && dto.country !== current.country) {
@@ -117,10 +133,11 @@ export class EmployeeService {
       updatedAt: new Date(),
     };
 
-    return this.employeeRepository.update(updated);
+    await this.employeeRepository.update(updated);
+    return this.findOneResponse(id);
   }
 
-  async relieve(id: string): Promise<Employee> {
+  async relieve(id: string): Promise<EmployeeResponseDto> {
     const current = await this.findOne(id);
 
     if (current.status === EmployeeStatus.Left) {
@@ -133,7 +150,8 @@ export class EmployeeService {
       updatedAt: new Date(),
     };
 
-    return this.employeeRepository.update(updated);
+    await this.employeeRepository.update(updated);
+    return this.findOneResponse(id);
   }
 
   private async listEmployees(
@@ -156,7 +174,7 @@ export class EmployeeService {
     const meta = getPaginationMeta(result.total, page, limit);
 
     return {
-      data: result.data.map(toEmployeeResponseDto),
+      data: result.data.map(toEmployeeListResponseDto),
       ...meta,
     };
   }

@@ -107,3 +107,4 @@ See [`docs/architecture.md`](docs/architecture.md) for domain model, module stru
 | [`docs/architecture.md`](docs/architecture.md) | Stack, domain model, API surface |
 | [`docs/business-specification.md`](docs/business-specification.md) | Business rules (salary lifecycle, templates, FX) |
 | [`docs/ai-approach.md`](docs/ai-approach.md) | How AI was used during development |
+| [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploy frontend (Vercel) + backend (Railway) |

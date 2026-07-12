@@ -10,7 +10,7 @@
 | **Design system** | Harbor Ink (`presentation/styles/`) | Shared tokens for color, type, space, radius, shadow, motion — see development plan § Design system |
 | **Tests** | Jest (NestJS) + Vitest (shared domain) | Fast unit tests on business logic |
 | **API docs** | `@nestjs/swagger` (OpenAPI 3) | Auto-generated spec + Swagger UI; Bearer auth for protected routes |
-| **Deploy** | Static host / Netlify (`frontend/`) + Railway/Render (`backend/` + Postgres) | SPA build; backend API separately |
+| **Deploy** | Vercel (`frontend/`) + Railway (`backend/` + Postgres) | See [`deployment-runbook.md`](./deployment-runbook.md) |
 
 ## Toolchain
 

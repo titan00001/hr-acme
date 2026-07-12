@@ -1,5 +1,9 @@
 # Technical Implementation Plan
 
+> **Note:** This is the pre-development planning document used to guide implementation. The source of truth for what was built is the codebase itself, with [`architecture.md`](./architecture.md) as the architectural reference.
+
+---
+
 ## Finalized Domain Model
 
 ```

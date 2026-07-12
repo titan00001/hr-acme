@@ -6,7 +6,7 @@
 |-------|--------|-----------|
 | **Backend** | NestJS + TypeScript | Enterprise framework; built-in DI; opinionated structure — fewer low-level decisions |
 | **Database** | PostgreSQL + TypeORM | Relational fit; migration support; indexes for 10k-scale queries |
-| **Frontend** | React + Vite + TypeScript + shadcn/ui + Tailwind | Fast dev, simple SPA — no SSR needed for internal HR tool |
+| **Frontend** | React 19 + Vite + TypeScript + Tailwind CSS 4 | Fast dev, simple SPA — no SSR needed for internal HR tool |
 | **Design system** | Harbor Ink (`presentation/styles/`) | Shared tokens for color, type, space, radius, shadow, motion — see development plan § Design system |
 | **Tests** | Jest (NestJS) + Vitest (shared domain) | Fast unit tests on business logic |
 | **API docs** | `@nestjs/swagger` (OpenAPI 3) | Auto-generated spec + Swagger UI; Bearer auth for protected routes |
@@ -207,11 +207,11 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 
 | Module | Endpoints |
 |--------|-----------|
-| Auth | `POST /auth/login` |
+| Auth | `POST /auth/login`, `GET /auth/me` |
 | Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve`, `GET /employees/left` |
 | Salary Templates | `GET/POST /salary-templates`, `GET/PATCH/DELETE /salary-templates/:id`, `POST /salary-templates/:id/versions`, `POST /salary-templates/:id/migrate` |
 | Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
-| Salary | `POST /employees/:id/salary` (assign → draft), `GET /employees/:id/salary/history` |
+| Salary | `GET /employees/:id/salary/history`, `POST /salary-templates/:templateId/migrate` |
 | Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
 | Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends` — query: `displayCurrency` (+ `from`/`to` on trends); `GET /dashboard/recent-revisions` — query: `page`, `limit`; sort `createdAt DESC`; ops: `POST /settings/dashboard/reconcile` |
 | Settings | `GET/PATCH /settings`; `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`; `POST /settings/dashboard/reconcile`; `GET/POST /settings/demo/*` |
@@ -234,7 +234,7 @@ OpenAPI spec and interactive docs served at `/api/docs` (Swagger UI). DTOs decor
 
 **Swagger UI flow:** Login via `/auth/login` → copy JWT → click **Authorize** → paste token → call protected endpoints.
 
-**Frontend API client:** `frontend/src/lib/api.ts` attaches Bearer token from login to all requests. OpenAPI spec can optionally generate typed client (`openapi-typescript` or `swagger-typescript-api`).
+**Frontend API client:** `frontend/src/infrastructure/api/` — RTK Query endpoints via `axiosBaseQuery` (`axios-client.ts`); attaches Bearer token from login to all requests.
 
 ---
 
@@ -339,7 +339,7 @@ hr-incubyte/
 
 - OpenAPI spec at `backend` `/api/docs-json` — API contract source of truth
 - Frontend `VITE_API_URL` points to backend (local or deployed)
-- Submission: single repository link
+- Setup guide: [`README.md`](../README.md)
 
 ---
 

@@ -1,5 +1,7 @@
 # Development Plan
 
+> **Note:** This is the pre-development milestone plan used to track delivery. The source of truth for what was built is the codebase. See [`README.md`](../README.md) for setup and [`architecture.md`](./architecture.md) for the architecture.
+
 Milestone-based delivery. Incremental git commits track progress within each milestone.
 
 ---

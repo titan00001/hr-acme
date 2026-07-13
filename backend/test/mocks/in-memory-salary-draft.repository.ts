@@ -40,6 +40,15 @@ export class InMemorySalaryDraftRepository implements SalaryDraftRepositoryPort 
     return Promise.resolve(draft ? this.clone(draft) : null);
   }
 
+  findByEmployeeIds(employeeIds: string[]): Promise<SalaryDraft[]> {
+    const idSet = new Set(employeeIds);
+    return Promise.resolve(
+      this.drafts
+        .filter((row) => idSet.has(row.employeeId))
+        .map((row) => this.clone(row)),
+    );
+  }
+
   findMany(query: SalaryDraftListQuery): Promise<SalaryDraftListResult> {
     const rows = [...this.drafts].sort(
       (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
@@ -55,6 +64,20 @@ export class InMemorySalaryDraftRepository implements SalaryDraftRepositoryPort 
   save(draft: SalaryDraft): Promise<SalaryDraft> {
     this.drafts.push(this.clone(draft));
     return Promise.resolve(this.clone(draft));
+  }
+
+  saveMany(drafts: SalaryDraft[]): Promise<SalaryDraft[]> {
+    const saved = drafts.map((draft) => {
+      const index = this.drafts.findIndex((row) => row.id === draft.id);
+      const clone = this.clone(draft);
+      if (index >= 0) {
+        this.drafts[index] = clone;
+      } else {
+        this.drafts.push(clone);
+      }
+      return this.clone(clone);
+    });
+    return Promise.resolve(saved);
   }
 
   update(draft: SalaryDraft): Promise<SalaryDraft> {

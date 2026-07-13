@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { safeOrderBy } from '../../../../common/pagination/pagination.utils';
 import { SalaryRecordEntity } from '../../../salary/adapters/outbound/salary-record.entity';
 import type {
@@ -85,6 +85,14 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
   async findById(id: string): Promise<Employee | null> {
     const entity = await this.repository.findOne({ where: { id } });
     return entity ? toDomain(entity) : null;
+  }
+
+  async findByIds(ids: string[]): Promise<Employee[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const entities = await this.repository.find({ where: { id: In(ids) } });
+    return entities.map(toDomain);
   }
 
   async findByEmployeeId(employeeId: string): Promise<Employee | null> {

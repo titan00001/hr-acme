@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
   IsDateString,
@@ -12,14 +13,17 @@ import {
   PRESERVE_SALARY_FIELDS,
   type PreserveSalaryField,
 } from '../../domain/preserve-salary-field';
+import { MIGRATION_BATCH_MAX } from '../../domain/migration.constants';
 
 export class MigrateFromTemplateDto {
   @ApiProperty({
     type: [String],
     example: ['550e8400-e29b-41d4-a716-446655440000'],
+    maxItems: MIGRATION_BATCH_MAX,
   })
   @IsArray()
   @ArrayNotEmpty()
+  @ArrayMaxSize(MIGRATION_BATCH_MAX)
   @IsUUID('4', { each: true })
   employeeIds!: string[];
 

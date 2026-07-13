@@ -84,6 +84,14 @@ export class TypeOrmSalaryTemplateRepository implements SalaryTemplateRepository
     return result?.max ? Number(result.max) : 0;
   }
 
+  async findAllByName(name: string): Promise<SalaryTemplate[]> {
+    const entities = await this.repository.find({
+      where: { name },
+      order: { version: 'DESC' },
+    });
+    return entities.map(toDomain);
+  }
+
   async findMany(
     query: SalaryTemplateListQuery,
   ): Promise<SalaryTemplateListResult> {

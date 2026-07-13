@@ -172,8 +172,14 @@ Phase 4 — Ship              M4.1 → M4.3
 
 - `SalaryRecord` entity + migration (with snapshot fields)
 - `GET /employees/:id/salary/history`
+- `GET /salary-templates/:id/migration-candidates` — paginated Active employees on sibling template versions
 - `POST /salary-templates/:id/migrate` — `preserveFields[]` → creates drafts
-- **Integration tests:** append-only history, migration with preserveFields
+- **Bulk migration design (MVP):**
+  - **Read:** single paginated join query (`employee` → `currentSalaryId` → `templateId IN siblingIds`); separate count + data query builders
+  - **Write:** two phases — (1) bulk load employees + current salaries, pre-validate all IDs (Active, on sibling version, batch ≤ 100); (2) `SalaryDraftService.bulkUpsert` inside one DB transaction (all-or-nothing)
+  - **Batch cap:** `MIGRATION_BATCH_MAX = 100` on DTO (`@ArrayMaxSize`) — aligned with UI candidate list
+  - **Deferred:** async job queue for migrations > 100; partial-success responses
+- **Integration tests:** append-only history, migration with preserveFields, migration-candidates list, eligibility rejection on write
 
 **Done when:** History & correction scenarios pass (see Test Plan — Salary History).
 
@@ -650,6 +656,16 @@ Testing runs **alongside each milestone** — not deferred to the end.
 - **When** HR migrates selected employees with `preserveFields: ['baseSalary']`
 - **Then** drafts are created where `baseSalary` retains the employee's current value and other fields come from v2
 
+**Scenario: Template migration rejects ineligible employees**
+- **Given** an employee is Active but their current salary is not on a sibling template version
+- **When** HR calls `POST /salary-templates/:id/migrate` including that employee
+- **Then** the API returns `400` before any draft is created (all-or-nothing)
+
+**Scenario: Template migration batch cap**
+- **Given** HR submits more than 100 `employeeIds` in one migrate request
+- **When** validation runs
+- **Then** the API returns `400` with a batch limit error
+
 ---
 
 ### Currency & FX Rates
@@ -766,6 +782,7 @@ Testing runs **alongside each milestone** — not deferred to the end.
 | Settings cache | In-memory singleton cache | Query DB on every request | FX rates and country list are read far more than written; avoids DB roundtrip on every salary validation |
 | Dashboard aggregates | Pre-aggregated snapshots updated at write time (base currency) | `GROUP BY` on every read / per-employee FX loop | Snapshot read is O(1) regardless of employee count; single FX multiply at query time; avoids thousands of DB round-trips per dashboard load |
 | Dashboard distribution buckets | Fixed boundaries in base currency (5 tiers) | Dynamic buckets derived from min/max at query time | Fixed boundaries allow pre-aggregation and incremental bucket-count updates; dynamic boundaries require a full table scan on every load |
+| Template bulk migration | Bulk fetch + pre-validate + transactional `bulkUpsert`; max 100/request; all-or-nothing | Per-employee sequential `upsert` in loop | Avoids N+1 reads and partial draft state on mid-batch failure; 100 cap matches UI and keeps request latency bounded for MVP |
 
 ### Frontend
 

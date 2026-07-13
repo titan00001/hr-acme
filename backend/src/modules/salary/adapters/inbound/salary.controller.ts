@@ -21,6 +21,7 @@ import { SWAGGER_BEARER_AUTH } from '../../../../common/swagger/setup-swagger';
 import { SalaryService } from '../../application/salary.service';
 import { MigrateFromTemplateDto } from './migrate-from-template.dto';
 import { MigrateFromTemplateResponseDto } from './migrate-from-template-response.dto';
+import { MigrationCandidatesResponseDto } from './migration-candidate-response.dto';
 import { SalaryHistoryResponseDto } from './salary-history-response.dto';
 
 type AuthenticatedRequest = Request & { user: AuthenticatedUser };
@@ -39,6 +40,19 @@ export class SalaryController {
     @Query() query: PaginationQueryDto,
   ): Promise<SalaryHistoryResponseDto> {
     return this.salaryService.getHistory(employeeId, query);
+  }
+
+  @Get('salary-templates/:templateId/migration-candidates')
+  @ApiOperation({
+    summary:
+      'List Active employees on other versions of this template family (eligible to migrate)',
+  })
+  @ApiOkResponse({ type: MigrationCandidatesResponseDto })
+  listMigrationCandidates(
+    @Param('templateId', ParseUUIDPipe) templateId: string,
+    @Query() query: PaginationQueryDto,
+  ): Promise<MigrationCandidatesResponseDto> {
+    return this.salaryService.listMigrationCandidates(templateId, query);
   }
 
   @Post('salary-templates/:templateId/migrate')

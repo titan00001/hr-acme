@@ -56,6 +56,10 @@ export class EmployeeService {
     return employee;
   }
 
+  async findByIds(ids: string[]): Promise<Employee[]> {
+    return this.employeeRepository.findByIds(ids);
+  }
+
   async findOneResponse(id: string): Promise<EmployeeResponseDto> {
     const item = await this.employeeRepository.findListItemById(id);
     if (!item) {

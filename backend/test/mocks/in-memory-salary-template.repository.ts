@@ -44,6 +44,14 @@ export class InMemorySalaryTemplateRepository implements SalaryTemplateRepositor
     return Promise.resolve(Math.max(...matches.map((row) => row.version)));
   }
 
+  findAllByName(name: string): Promise<SalaryTemplate[]> {
+    const matches = this.templates
+      .filter((row) => row.name === name)
+      .sort((a, b) => b.version - a.version)
+      .map((row) => this.clone(row));
+    return Promise.resolve(matches);
+  }
+
   findMany(query: SalaryTemplateListQuery): Promise<SalaryTemplateListResult> {
     let rows = [...this.templates];
 
@@ -117,6 +125,10 @@ export class InMemorySalaryTemplateRepository implements SalaryTemplateRepositor
 
   clear(): void {
     this.templates = [];
+  }
+
+  all(): SalaryTemplate[] {
+    return this.templates.map((row) => this.clone(row));
   }
 
   seed(template: SalaryTemplate): void {

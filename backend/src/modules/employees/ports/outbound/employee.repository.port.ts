@@ -22,6 +22,7 @@ export const EMPLOYEE_REPOSITORY = Symbol('EMPLOYEE_REPOSITORY');
 
 export interface EmployeeRepositoryPort {
   findById(id: string): Promise<Employee | null>;
+  findByIds(ids: string[]): Promise<Employee[]>;
   findByEmployeeId(employeeId: string): Promise<Employee | null>;
   findByEmail(email: string): Promise<Employee | null>;
   findMany(query: EmployeeListQuery): Promise<EmployeeListResult>;

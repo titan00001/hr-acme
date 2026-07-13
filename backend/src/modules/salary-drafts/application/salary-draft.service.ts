@@ -21,6 +21,7 @@ import {
   SALARY_RECORD_REPOSITORY,
   type SalaryRecordRepositoryPort,
 } from '../../salary/ports/outbound/salary-record.repository.port';
+import type { Employee } from '../../employees/domain/employee.model';
 import { UpsertSalaryDraftDto } from '../adapters/inbound/upsert-salary-draft.dto';
 import { SalaryDraftListResponseDto } from '../adapters/inbound/salary-draft-list-response.dto';
 import { SalaryDraftResponseDto } from '../adapters/inbound/salary-draft-response.dto';
@@ -154,6 +155,89 @@ export class SalaryDraftService {
 
     const saved = await this.draftRepository.save(draft);
     return toSalaryDraftResponseDto(saved, employeeSummary);
+  }
+
+  async bulkUpsert(
+    items: Array<{ employee: Employee; dto: UpsertSalaryDraftDto }>,
+    createdBy: string,
+  ): Promise<SalaryDraftResponseDto[]> {
+    if (items.length === 0) {
+      throw new BadRequestException('At least one employee is required');
+    }
+
+    const supportedCurrencies = await this.settingsService.getCurrencies();
+    for (const { dto } of items) {
+      const normalized = dto.currency.toUpperCase();
+      if (!supportedCurrencies.includes(normalized)) {
+        throw new BadRequestException(
+          `Currency ${normalized} is not in supported currencies`,
+        );
+      }
+    }
+
+    const employeeIds = items.map((item) => item.employee.id);
+    const existingDrafts =
+      await this.draftRepository.findByEmployeeIds(employeeIds);
+    const existingByEmployeeId = new Map(
+      existingDrafts.map((draft) => [draft.employeeId, draft]),
+    );
+
+    const now = new Date();
+    const draftsToPersist: SalaryDraft[] = [];
+
+    for (const { employee, dto } of items) {
+      const components = this.normalizeComponents(dto.components);
+      const snapshot = await this.stockSnapshotService.capture(
+        components.stock,
+        dto.currency,
+      );
+      const existing = existingByEmployeeId.get(employee.id);
+
+      if (existing) {
+        draftsToPersist.push({
+          ...existing,
+          templateId: dto.templateId ?? null,
+          effectiveDate: dto.effectiveDate,
+          baseSalary: toMoneyString(dto.baseSalary),
+          currency: dto.currency.toUpperCase(),
+          paymentCycle: dto.paymentCycle,
+          components,
+          ...snapshot,
+          reason: dto.reason ?? null,
+          createdBy,
+          updatedAt: now,
+        });
+      } else {
+        draftsToPersist.push({
+          id: randomUUID(),
+          employeeId: employee.id,
+          templateId: dto.templateId ?? null,
+          effectiveDate: dto.effectiveDate,
+          baseSalary: toMoneyString(dto.baseSalary),
+          currency: dto.currency.toUpperCase(),
+          paymentCycle: dto.paymentCycle,
+          components,
+          ...snapshot,
+          reason: dto.reason ?? null,
+          createdBy,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    const saved = await this.draftRepository.saveMany(draftsToPersist);
+
+    return saved.map((draft) => {
+      const employee = items.find((item) => item.employee.id === draft.employeeId)
+        ?.employee;
+      if (!employee) {
+        throw new BadRequestException(
+          `Missing employee context for draft ${draft.id}`,
+        );
+      }
+      return toSalaryDraftResponseDto(draft, toDraftEmployeeSummary(employee));
+    });
   }
 
   async commit(id: string, createdBy: string) {

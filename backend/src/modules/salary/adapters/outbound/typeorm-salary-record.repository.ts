@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { EmployeeStatus } from '../../../../common/enums/employee-status.enum';
+import { EmployeeEntity } from '../../../employees/adapters/outbound/employee.entity';
+import { SalaryTemplateEntity } from '../../../salary-templates/adapters/outbound/salary-template.entity';
+import type { MigrationCandidate } from '../../domain/migration-candidate.model';
 import type { SalaryRecord } from '../../domain/salary-record.model';
 import {
+  MigrationCandidatesResult,
   SalaryHistoryQuery,
   SalaryHistoryResult,
   SalaryRecordRepositoryPort,
@@ -72,6 +77,14 @@ export class TypeOrmSalaryRecordRepository implements SalaryRecordRepositoryPort
     return entity ? toDomain(entity) : null;
   }
 
+  async findByIds(ids: string[]): Promise<SalaryRecord[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const entities = await this.repository.find({ where: { id: In(ids) } });
+    return entities.map(toDomain);
+  }
+
   async findByEmployeeId(
     employeeId: string,
     query: SalaryHistoryQuery,
@@ -90,6 +103,82 @@ export class TypeOrmSalaryRecordRepository implements SalaryRecordRepositoryPort
       data: entities.map(toDomain),
       total,
     };
+  }
+
+  async findMigrationCandidates(
+    sourceTemplateIds: string[],
+    query: SalaryHistoryQuery,
+  ): Promise<MigrationCandidatesResult> {
+    if (sourceTemplateIds.length === 0) {
+      return { data: [], total: 0 };
+    }
+
+    const baseQb = () =>
+      this.repository.manager
+        .createQueryBuilder()
+        .from(EmployeeEntity, 'employee')
+        .innerJoin(
+          SalaryRecordEntity,
+          'salary',
+          'salary.id = employee.currentSalaryId',
+        )
+        .innerJoin(
+          SalaryTemplateEntity,
+          'template',
+          'template.id = salary.templateId',
+        )
+        .where('employee.status = :status', { status: EmployeeStatus.Active })
+        .andWhere('salary.templateId IN (:...sourceTemplateIds)', {
+          sourceTemplateIds,
+        });
+
+    const total = await baseQb().getCount();
+
+    const rows = await baseQb()
+      .select([
+        'employee.id AS id',
+        'employee.employee_id AS "employeeId"',
+        'employee.name AS name',
+        'employee.email AS email',
+        'employee.country AS country',
+        'salary.template_id AS "currentTemplateId"',
+        'template.version AS "currentTemplateVersion"',
+        'salary.total_compensation AS "totalCompensation"',
+        'salary.currency AS "salaryCurrency"',
+      ])
+      .orderBy('employee.name', 'ASC')
+      .offset((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .getRawMany<{
+        id: string;
+        employeeId: string;
+        name: string;
+        email: string;
+        country: string;
+        currentTemplateId: string;
+        currentTemplateVersion: string | number;
+        totalCompensation: string | null;
+        salaryCurrency: string | null;
+      }>();
+
+    const data: MigrationCandidate[] = rows.map((row) => ({
+      id: row.id,
+      employeeId: row.employeeId,
+      name: row.name,
+      email: row.email,
+      country: row.country,
+      currentTemplateId: row.currentTemplateId,
+      currentTemplateVersion: Number(row.currentTemplateVersion),
+      currentSalary:
+        row.totalCompensation && row.salaryCurrency
+          ? {
+              totalCompensation: row.totalCompensation,
+              currency: row.salaryCurrency,
+            }
+          : null,
+    }));
+
+    return { data, total };
   }
 
   async save(record: SalaryRecord): Promise<SalaryRecord> {

@@ -354,6 +354,7 @@ Index: `(name)`, `(country)`, `(currency)`.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/employees/:id/salary/history` | Committed history |
+| `GET` | `/salary-templates/:id/migration-candidates` | Active employees on other versions of the same family |
 | `POST` | `/salary-templates/:id/migrate` | Bulk migrate with `preserveFields` → drafts |
 
 ---

@@ -1,3 +1,5 @@
+import type { SalaryDraft } from '@/domain/types/salary.types';
+
 export interface TemplateStockComponent {
   quantity: number;
   vestingDate?: string;
@@ -64,4 +66,61 @@ export interface CreateTemplateVersionRequest {
   country: string;
   currency: string;
   components: TemplateComponents;
+}
+
+export type PreserveSalaryField =
+  | 'baseSalary'
+  | 'currency'
+  | 'paymentCycle'
+  | 'allowances'
+  | 'bonus'
+  | 'stock';
+
+export const PRESERVE_SALARY_FIELDS: PreserveSalaryField[] = [
+  'baseSalary',
+  'currency',
+  'paymentCycle',
+  'allowances',
+  'bonus',
+  'stock',
+];
+
+/** Mirrors backend MIGRATION_BATCH_MAX */
+export const MIGRATION_BATCH_MAX = 100;
+
+/** Mirrors backend MigrationCandidateResponseDto */
+export interface MigrationCandidate {
+  id: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  country: string;
+  currentTemplateId: string;
+  currentTemplateVersion: number;
+  currentSalary: {
+    totalCompensation: string;
+    currency: string;
+  } | null;
+}
+
+export interface PaginatedMigrationCandidates {
+  data: MigrationCandidate[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Mirrors backend MigrateFromTemplateDto */
+export interface MigrateFromTemplateRequest {
+  employeeIds: string[];
+  preserveFields: PreserveSalaryField[];
+  effectiveDate: string;
+  reason?: string;
+}
+
+/** Mirrors backend MigrateFromTemplateResponseDto */
+export interface MigrateFromTemplateResponse {
+  draftsCreated: number;
+  drafts: SalaryDraft[];
 }

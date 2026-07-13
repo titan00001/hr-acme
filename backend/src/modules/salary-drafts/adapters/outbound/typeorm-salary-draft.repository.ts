@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { PaymentCycle } from '../../../../common/enums/payment-cycle.enum';
 import { safeOrderBy } from '../../../../common/pagination/pagination.utils';
 import { EmployeeEntity } from '../../../employees/adapters/outbound/employee.entity';
@@ -179,6 +179,8 @@ export class TypeOrmSalaryDraftRepository implements SalaryDraftRepositoryPort {
   constructor(
     @InjectRepository(SalaryDraftEntity)
     private readonly repository: Repository<SalaryDraftEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async findById(id: string): Promise<SalaryDraft | null> {
@@ -200,6 +202,16 @@ export class TypeOrmSalaryDraftRepository implements SalaryDraftRepositoryPort {
   async findByEmployeeId(employeeId: string): Promise<SalaryDraft | null> {
     const entity = await this.repository.findOne({ where: { employeeId } });
     return entity ? toDomain(entity) : null;
+  }
+
+  async findByEmployeeIds(employeeIds: string[]): Promise<SalaryDraft[]> {
+    if (employeeIds.length === 0) {
+      return [];
+    }
+    const entities = await this.repository.find({
+      where: { employeeId: In(employeeIds) },
+    });
+    return entities.map(toDomain);
   }
 
   async findMany(query: SalaryDraftListQuery): Promise<SalaryDraftListResult> {
@@ -237,6 +249,17 @@ export class TypeOrmSalaryDraftRepository implements SalaryDraftRepositoryPort {
   async save(draft: SalaryDraft): Promise<SalaryDraft> {
     const saved = await this.repository.save(toEntity(draft));
     return toDomain(saved);
+  }
+
+  async saveMany(drafts: SalaryDraft[]): Promise<SalaryDraft[]> {
+    if (drafts.length === 0) {
+      return [];
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(SalaryDraftEntity);
+      const saved = await repo.save(drafts.map(toEntity));
+      return saved.map(toDomain);
+    });
   }
 
   async update(draft: SalaryDraft): Promise<SalaryDraft> {

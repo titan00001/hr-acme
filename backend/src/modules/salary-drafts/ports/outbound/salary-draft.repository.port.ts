@@ -21,8 +21,10 @@ export interface SalaryDraftRepositoryPort {
   findById(id: string): Promise<SalaryDraft | null>;
   findListItemById(id: string): Promise<SalaryDraftListItem | null>;
   findByEmployeeId(employeeId: string): Promise<SalaryDraft | null>;
+  findByEmployeeIds(employeeIds: string[]): Promise<SalaryDraft[]>;
   findMany(query: SalaryDraftListQuery): Promise<SalaryDraftListResult>;
   save(draft: SalaryDraft): Promise<SalaryDraft>;
+  saveMany(drafts: SalaryDraft[]): Promise<SalaryDraft[]>;
   update(draft: SalaryDraft): Promise<SalaryDraft>;
   delete(id: string): Promise<void>;
 }

@@ -199,7 +199,7 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 
 **FX rates:** Synced via `POST /settings/currency-rates/sync` → calls ExchangeRate-API → upserts `currency_rates` table. Settings UI shows rate table + **Sync** button.
 
-**Template migration:** From template detail page; option `preserveFields[]` — keep existing employee salary field values, apply template values only for non-preserved fields.
+**Template migration:** From template detail page; option `preserveFields[]` — keep existing employee salary field values, apply template values only for non-preserved fields. **Bulk migrate** loads candidates via `GET …/migration-candidates`, then `POST …/migrate` with up to **100** employees per request. Write path: bulk fetch → pre-validate eligibility → single transactional `bulkUpsert` of drafts (all-or-nothing; no partial drafts on failure).
 
 ---
 
@@ -209,9 +209,9 @@ Unique constraint: `(baseCurrency, targetCurrency)`.
 |--------|-----------|
 | Auth | `POST /auth/login`, `GET /auth/me` |
 | Employees | `GET/POST /employees`, `GET/PATCH /employees/:id`, `POST /employees/:id/relieve`, `GET /employees/left` |
-| Salary Templates | `GET/POST /salary-templates`, `GET/PATCH/DELETE /salary-templates/:id`, `POST /salary-templates/:id/versions`, `POST /salary-templates/:id/migrate` |
+| Salary Templates | `GET/POST /salary-templates`, `GET/PATCH/DELETE /salary-templates/:id`, `POST /salary-templates/:id/versions`, `GET /salary-templates/:id/migration-candidates`, `POST /salary-templates/:id/migrate` |
 | Salary Drafts | `POST /employees/:id/salary/draft`, `GET /salary-drafts`, `GET /salary-drafts/:id`, `POST /salary-drafts/:id/commit`, `DELETE /salary-drafts/:id` |
-| Salary | `GET /employees/:id/salary/history`, `POST /salary-templates/:templateId/migrate` |
+| Salary | `GET /employees/:id/salary/history`, `GET /salary-templates/:templateId/migration-candidates`, `POST /salary-templates/:templateId/migrate` |
 | Currency Rates | `GET /settings/currency-rates`, `POST /settings/currency-rates/sync` |
 | Dashboard | `GET /dashboard/summary`, `/by-country`, `/distribution`, `/trends` — query: `displayCurrency` (+ `from`/`to` on trends); `GET /dashboard/recent-revisions` — query: `page`, `limit`; sort `createdAt DESC`; ops: `POST /settings/dashboard/reconcile` |
 | Settings | `GET/PATCH /settings`; `GET /settings/currency-rates`, `POST /settings/currency-rates/sync`; `POST /settings/dashboard/reconcile`; `GET/POST /settings/demo/*` |
@@ -308,6 +308,8 @@ frontend/
 | FX rates | `currency_rates` table; sync on demand via ExchangeRate-API |
 | Seed | Batch inserts (500–1000 rows/transaction); triggered from Settings → Demo |
 | Clear all | Truncate employee/salary tables; retain Settings row |
+| Template migration (read) | Paginated join on `Employee.currentSalaryId`; sibling `templateId IN (…)` filter; separate count/data queries |
+| Template migration (write) | Bulk `findByIds` for employees + salaries; pre-validate; `bulkUpsert` drafts in one transaction; max **100** employees per request |
 
 ---
 

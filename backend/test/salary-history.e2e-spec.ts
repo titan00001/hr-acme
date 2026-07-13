@@ -189,6 +189,16 @@ describe('Salary history & migrate (e2e)', () => {
 
     const v2 = v2Response.body as TemplateResponseDto;
 
+    const candidatesResponse = await request(app.getHttpServer())
+      .get(`/salary-templates/${v2.id}/migration-candidates`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(candidatesResponse.body.total).toBe(1);
+    expect(candidatesResponse.body.data[0]?.id).toBe(employeeId);
+    expect(candidatesResponse.body.data[0]?.currentTemplateId).toBe(v1.id);
+    expect(candidatesResponse.body.data[0]?.currentTemplateVersion).toBe(1);
+
     const migrateResponse = await request(app.getHttpServer())
       .post(`/salary-templates/${v2.id}/migrate`)
       .set('Authorization', `Bearer ${accessToken}`)
@@ -206,6 +216,18 @@ describe('Salary history & migrate (e2e)', () => {
     expect(migrated.drafts[0]?.components.allowances).toBe(60_000);
     expect(migrated.drafts[0]?.components.bonus).toBe(120_000);
     expect(migrated.drafts[0]?.templateId).toBe(v2.id);
+    expect(sharedSalaryDraftRepository.count()).toBe(1);
+
+    await request(app.getHttpServer())
+      .post(`/salary-templates/${v1.id}/migrate`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        employeeIds: [employeeId],
+        preserveFields: ['baseSalary'],
+        effectiveDate: '2026-08-01',
+      })
+      .expect(400);
+
     expect(sharedSalaryDraftRepository.count()).toBe(1);
   });
 });

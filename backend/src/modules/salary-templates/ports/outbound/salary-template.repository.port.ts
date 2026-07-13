@@ -26,6 +26,7 @@ export interface SalaryTemplateRepositoryPort {
   ): Promise<SalaryTemplate | null>;
   findLatestByName(name: string): Promise<SalaryTemplate | null>;
   findMaxVersionByName(name: string): Promise<number>;
+  findAllByName(name: string): Promise<SalaryTemplate[]>;
   findMany(query: SalaryTemplateListQuery): Promise<SalaryTemplateListResult>;
   save(template: SalaryTemplate): Promise<SalaryTemplate>;
   update(template: SalaryTemplate): Promise<SalaryTemplate>;

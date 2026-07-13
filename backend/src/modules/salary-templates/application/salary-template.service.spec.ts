@@ -78,6 +78,7 @@ describe('SalaryTemplateService', () => {
             findByNameAndVersion: findByNameAndVersionMock,
             findLatestByName: findLatestByNameMock,
             findMaxVersionByName: findMaxVersionByNameMock,
+            findAllByName: jest.fn().mockResolvedValue([]),
             findMany: findManyMock,
             save: saveMock,
             update: updateMock,

@@ -28,6 +28,14 @@ export class InMemoryEmployeeRepository implements EmployeeRepositoryPort {
     return Promise.resolve(employee ? { ...employee } : null);
   }
 
+  findByIds(ids: string[]): Promise<Employee[]> {
+    const idSet = new Set(ids);
+    const matches = this.employees
+      .filter((row) => idSet.has(row.id))
+      .map((row) => ({ ...row }));
+    return Promise.resolve(matches);
+  }
+
   findByEmployeeId(employeeId: string): Promise<Employee | null> {
     const employee = this.employees.find(
       (row) => row.employeeId === employeeId,

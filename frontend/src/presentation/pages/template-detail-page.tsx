@@ -10,6 +10,7 @@ import { PageHeader } from '@/presentation/components/layout/page-header';
 import { CreateTemplateVersionDialog } from '@/presentation/components/salary/create-template-version-dialog';
 import { DeleteTemplateDialog } from '@/presentation/components/salary/delete-template-dialog';
 import { EditTemplateDialog } from '@/presentation/components/salary/edit-template-dialog';
+import { MigrateTemplateDialog } from '@/presentation/components/salary/migrate-template-dialog';
 import { TemplateSummaryCard } from '@/presentation/components/salary/template-summary-card';
 import { Button } from '@/presentation/components/ui/button';
 
@@ -19,6 +20,7 @@ export function TemplateDetailPage(): React.ReactElement {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
+  const [migrateOpen, setMigrateOpen] = useState(false);
 
   const {
     data: template,
@@ -88,6 +90,13 @@ export function TemplateDetailPage(): React.ReactElement {
             <Button
               type="button"
               variant="outline"
+              onClick={() => setMigrateOpen(true)}
+            >
+              Migrate employees
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setVersionOpen(true)}
             >
               Create version
@@ -148,7 +157,10 @@ export function TemplateDetailPage(): React.ReactElement {
         )}
       </section>
 
-      <Link to="/templates" className="inline-block text-sm text-brand hover:underline">
+      <Link
+        to="/templates"
+        className="inline-block text-sm text-brand hover:underline"
+      >
         Back to templates
       </Link>
 
@@ -171,6 +183,14 @@ export function TemplateDetailPage(): React.ReactElement {
         onClose={() => setVersionOpen(false)}
         onSuccess={(newId) => {
           void navigate(`/templates/${newId}`);
+        }}
+      />
+      <MigrateTemplateDialog
+        open={migrateOpen}
+        template={template}
+        onClose={() => setMigrateOpen(false)}
+        onSuccess={() => {
+          void navigate('/drafts');
         }}
       />
     </main>

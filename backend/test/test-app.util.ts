@@ -81,6 +81,12 @@ sharedEmployeeRepository.setSalaryLookup((salaryId) => {
   };
 });
 
+sharedSalaryRecordRepository.setMigrationLookups({
+  listEmployees: () => sharedEmployeeRepository.all(),
+  getTemplate: (id) =>
+    sharedSalaryTemplateRepository.all().find((row) => row.id === id) ?? null,
+});
+
 sharedSalaryDraftRepository.setEmployeeLookup((employeeUuid) => {
   const employee = sharedEmployeeRepository
     .all()

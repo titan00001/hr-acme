@@ -66,6 +66,10 @@ export class SalaryTemplateService {
     return template;
   }
 
+  async findAllByName(name: string): Promise<SalaryTemplate[]> {
+    return this.templateRepository.findAllByName(name);
+  }
+
   async findOneResponse(id: string) {
     const template = await this.findOne(id);
     const latestVersion = await this.templateRepository.findMaxVersionByName(

@@ -22,7 +22,7 @@ Duplicate `employeeId` or `email` should be rejected.
 |------|--------|
 | Versioned templates | Each template has a `version`. Once assigned to any employee, that version is **immutable** |
 | New version on change | Compensation structure changes create a new template version — existing assignments are untouched |
-| Manual migration (MVP) | From template detail page; bulk select; `preserveFields` keeps existing employee values |
+| Manual migration (MVP) | From template detail page; bulk select (max **100** per request); `preserveFields` keeps existing employee values; **all-or-nothing** transactional draft creation |
 | Draft-first workflow | Assign/edit saves to `SalaryDraft`; commit creates `SalaryRecord`; one draft per employee |
 | SalaryRecord append-only | Committed records never edited or deleted |
 | Chronology | New `SalaryRecord.effectiveDate` must be ≥ latest existing record's effectiveDate |
@@ -58,7 +58,7 @@ HR manages salary templates from a dedicated **Templates** area (list, detail, c
 ### UI expectations
 
 - Templates list: search/filter by country/currency; show name, latest version, assigned status
-- Template detail: view all versions; actions Create version / Edit (if unused) / Delete (if unused)
+- Template detail: view all versions; actions Create version / Edit (if unused) / Delete (if unused) / **Migrate employees** (bulk select Active employees on other family versions; `preserveFields` + effective date → salary drafts)
 - Assign/Edit salary forms continue to use Template picker (read-only selection) from these templates
 
 ---
